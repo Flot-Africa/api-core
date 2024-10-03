@@ -6,6 +6,7 @@ import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -13,23 +14,23 @@ import java.util.UUID;
 @ApplicationScoped
 public class PostgresSubscriberRepository implements SubscriberRepository, PanacheRepositoryBase<Subscriber, UUID> {
 
-    @Override
+    @WithSession
     public Uni<Subscriber> findById(UUID id) {
-        return PanacheRepositoryBase.super.findById(id);
+        return Subscriber.findById(id);
     }
 
-    @Override
+    @WithSession
     public Uni<List<Subscriber>> listAll() {
-        return PanacheRepositoryBase.super.listAll();
+        return Subscriber.listAll();
+    }
+
+    @WithSession
+    public Uni<Subscriber> persist(Subscriber subscriber) {
+        return subscriber.persistAndFlush();
     }
 
     @Override
     @WithSession
-    public Uni<Subscriber> persist(Subscriber subscriber) {
-        return PanacheRepositoryBase.super.persistAndFlush(subscriber);
-    }
-
-    @Override
     public Uni<Subscriber> findByEmail(String email) {
         return find("email", email).firstResult();
     }

@@ -27,7 +27,9 @@ public class SubscriberResource {
     @POST
     public Uni<Response> createSubscriber(CreateSubscriberCommand command) {
         return commandHandler.handle(command)
-                .onItem().transform(id -> Response.status(Response.Status.CREATED).entity(id).build());
+                .onItem().transform(id -> Response.status(Response.Status.CREATED).entity(id).build())
+                .onFailure().recoverWithItem(ex -> Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("An error occurred while creating the subscriber: " + ex.getMessage()).build());
     }
 
     @GET
@@ -36,8 +38,14 @@ public class SubscriberResource {
         return queryService.getSubscriberById(id)
                 .onItem().transform(subscriber -> subscriber != null
                         ? Response.ok(subscriber).build()
-                        : Response.status(Response.Status.NOT_FOUND).build());
+                        : Response.status(Response.Status.NOT_FOUND)
+                        .entity("Subscriber not found for ID: " + id)
+                        .build())
+                .onFailure().recoverWithItem(ex -> Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("An error occurred while retrieving the subscriber: " + ex.getMessage())
+                        .build());
     }
+
 
     @GET
     public Uni<Response> getAllSubscribers() {

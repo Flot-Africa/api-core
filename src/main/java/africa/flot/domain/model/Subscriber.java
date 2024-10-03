@@ -6,6 +6,7 @@ import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import java.util.UUID;
 
+@Inheritance(strategy = InheritanceType.JOINED)
 @Entity
 @Table(name = "subscriber")
 public class Subscriber extends PanacheEntityBase {
