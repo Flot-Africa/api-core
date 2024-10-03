@@ -6,6 +6,7 @@ import africa.flot.application.query.SubscriberQueryService;
 
 import java.util.UUID;
 
+import io.quarkus.security.Authenticated;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -15,6 +16,7 @@ import jakarta.ws.rs.core.Response;
 @Path("/subscribers")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Authenticated
 public class SubscriberResource {
 
     @Inject
