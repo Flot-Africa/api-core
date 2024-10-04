@@ -21,7 +21,7 @@ jobs:
       - name: Setup JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: "17"
+          java-version: "22"
           distribution: "adopt"
 
       - name: CodeQL init
@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'Flot-MStudio/api-core'
-          # Removed 'token' line
+          token: ${{ secrets.GITH_TOKEN }}
 
       - name: Cache Maven dependencies
         uses: actions/cache@v3
