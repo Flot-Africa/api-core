@@ -24,6 +24,9 @@ public class Subscriber extends PanacheEntityBase {
     @Column(nullable = false, unique = true)
     public String email;
 
+    @Column(name = "password_hash", nullable = false)
+    public String password;
+
     @Column(nullable = false)
     public String phone;
 

@@ -26,7 +26,7 @@ public class PostgresSubscriberRepository implements SubscriberRepository, Panac
 
     @WithSession
     public Uni<Subscriber> persist(Subscriber subscriber) {
-        return subscriber.persistAndFlush();
+        return PanacheRepositoryBase.super.persistAndFlush(subscriber);
     }
 
     @Override
@@ -43,5 +43,14 @@ public class PostgresSubscriberRepository implements SubscriberRepository, Panac
     @Override
     public Uni<Boolean> deleteById(UUID id) {
         return PanacheRepositoryBase.super.deleteById(id);
+    }
+
+    /**
+     * @param phone
+     * @return
+     */
+    @Override
+    public Uni<Subscriber> findByPhone(String phone) {
+        return Subscriber.find("phone", phone).firstResult();
     }
 }

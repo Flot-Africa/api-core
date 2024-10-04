@@ -7,6 +7,7 @@ public record CreateSubscriberCommand(
         String lastName,
         String email,
         String phone,
+        String password,
         String driverLicenseNumber,
         Address address) {
 

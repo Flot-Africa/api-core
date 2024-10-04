@@ -13,4 +13,6 @@ public interface SubscriberRepository {
     Uni<Subscriber> findByEmail(String email);
     Uni<Subscriber> findByDriverLicenseNumber(String driverLicenseNumber);
     Uni<Boolean> deleteById(UUID id);
+
+    Uni<Subscriber> findByPhone(String phone);
 }

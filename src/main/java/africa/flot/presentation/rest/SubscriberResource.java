@@ -8,6 +8,8 @@ import java.util.UUID;
 
 import io.quarkus.security.Authenticated;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -16,7 +18,6 @@ import jakarta.ws.rs.core.Response;
 @Path("/subscribers")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@Authenticated
 public class SubscriberResource {
 
     @Inject
@@ -27,6 +28,7 @@ public class SubscriberResource {
 
 
     @POST
+    @PermitAll
     public Uni<Response> createSubscriber(CreateSubscriberCommand command) {
         return commandHandler.handle(command)
                 .onItem().transform(id -> Response.status(Response.Status.CREATED).entity(id).build())
@@ -36,6 +38,7 @@ public class SubscriberResource {
 
     @GET
     @Path("/{id}")
+    @RolesAllowed({"ADMIN", "SUBSCRIBER"})
     public Uni<Response> getSubscriber(@PathParam("id") UUID id) {
         return queryService.getSubscriberById(id)
                 .onItem().transform(subscriber -> subscriber != null
@@ -50,6 +53,7 @@ public class SubscriberResource {
 
 
     @GET
+    @RolesAllowed({"ADMIN"})
     public Uni<Response> getAllSubscribers() {
         return queryService.getAllSubscribers()
                 .onItem().transform(subscribers -> Response.ok(subscribers).build());
@@ -57,6 +61,7 @@ public class SubscriberResource {
 
     @PUT
     @Path("/{id}/verify-kyb")
+    @RolesAllowed({"ADMIN"})
     public Uni<Response> verifyKYB(@PathParam("id") UUID id) {
         return commandHandler.verifyKYB(id)
                 .onItem().transform(v -> Response.ok().build());
@@ -64,6 +69,7 @@ public class SubscriberResource {
 
     @PUT
     @Path("/{id}/reject-kyb")
+    @RolesAllowed({"ADMIN"})
     public Uni<Response> rejectKYB(@PathParam("id") UUID id) {
         return commandHandler.rejectKYB(id)
                 .onItem().transform(v -> Response.ok().build());
@@ -71,6 +77,7 @@ public class SubscriberResource {
 
     @PUT
     @Path("/{id}/deactivate")
+    @RolesAllowed({"ADMIN"})
     public Uni<Response> deactivateSubscriber(@PathParam("id") UUID id) {
         return commandHandler.deactivateSubscriber(id)
                 .onItem().transform(v -> Response.ok().build());

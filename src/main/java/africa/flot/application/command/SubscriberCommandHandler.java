@@ -4,10 +4,9 @@ import africa.flot.domain.event.SubscriberCreatedEvent;
 import africa.flot.domain.model.Subscriber;
 import africa.flot.domain.repository.SubscriberRepository;
 import africa.flot.infrastructure.messaging.QuarkusEventBus;
-import africa.flot.presentation.dto.command.CreateSubscriberDTO;
+import africa.flot.infrastructure.security.AuthService;
 import africa.flot.presentation.mapper.SubscriberMapper;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -23,11 +22,14 @@ public class SubscriberCommandHandler {
     SubscriberMapper mapper;
     @Inject
     QuarkusEventBus eventBus;
+    @Inject
+    AuthService authService;
 
 
     public Uni<UUID> handle(CreateSubscriberCommand command) {
         Subscriber subscriber = mapper.toEntity(command);
-        return repository.persist(subscriber)
+        return authService.registerSubscriber(subscriber, command.password())
+                .onItem().transformToUni(__ -> repository.persist(subscriber))
                 .onItem().transform(s -> {
                     eventBus.publish(new SubscriberCreatedEvent(s.id, s.email));
                     return s.id;
