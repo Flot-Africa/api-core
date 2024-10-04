@@ -18,24 +18,32 @@ jobs:
   codeql:
     runs-on: ubuntu-latest
     steps:
-      - name: jdk17
+      - name: Setup JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: "22"
           distribution: "adopt"
-      - name: codeql init
+
+      - name: CodeQL init
         uses: github/codeql-action/init@v2
         with:
           languages: java
-      - name: checkout
+
+      - name: Checkout code
         uses: actions/checkout@v3
-      - name: cache ~/.m2
+        with:
+          repository: 'Flot-MStudio/api-core'
+          token: ${{ secrets.GITH_TOKEN }}
+
+      - name: Cache Maven dependencies
         uses: actions/cache@v3
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      - name: mvn compile
+
+      - name: Compile with Maven
         run: mvn --show-version --batch-mode compile
-      - name: codeql analyze
+
+      - name: CodeQL analyze
         uses: github/codeql-action/analyze@v2
