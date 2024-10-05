@@ -6,13 +6,12 @@ import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
-public class PostgresSubscriberRepository implements SubscriberRepository, PanacheRepositoryBase<Subscriber, UUID> {
+public class SubscriberRepositoryImpl implements SubscriberRepository, PanacheRepositoryBase<Subscriber, UUID> {
 
     @WithSession
     public Uni<Subscriber> findById(UUID id) {

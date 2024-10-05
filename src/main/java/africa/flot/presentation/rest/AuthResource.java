@@ -1,6 +1,7 @@
 package africa.flot.presentation.rest;
 
-import africa.flot.application.command.AuthCommand;
+import africa.flot.application.command.auth.AdminAuthCommand;
+import africa.flot.application.command.auth.SubscriberAuthCommand;
 import africa.flot.infrastructure.security.AuthService;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
@@ -22,13 +23,29 @@ public class AuthResource {
 
     @POST
     @PermitAll
-    @Path("/login")
+    @Path("/subscriber/login")
     @WithSession
-    public Uni<Response> login(AuthCommand command) {
-        return authService.authenticate(command.phone(), command.password())
+    public Uni<Response> loginSubscriber(SubscriberAuthCommand command) {
+        return authService.authenticateSubscriber(command.phone(), command.password())
                 .onItem().transformToUni(authenticated -> {
                     if (authenticated) {
-                        return authService.generateJWT(command.phone())
+                        return authService.generateSubscriberJWT(command.phone())
+                                .onItem().transform(jwt -> Response.ok().entity(jwt).build());
+                    } else {
+                        return Uni.createFrom().item(Response.status(Response.Status.UNAUTHORIZED).build());
+                    }
+                });
+    }
+
+    @POST
+    @PermitAll
+    @Path("/admin/login")
+    @WithSession
+    public Uni<Response> loginAdmin(AdminAuthCommand command) {
+        return authService.authenticateAdmin(command.email(), command.password())
+                .onItem().transformToUni(authenticated -> {
+                    if (authenticated) {
+                        return authService.generateAdminJWT(command.email())
                                 .onItem().transform(jwt -> Response.ok().entity(jwt).build());
                     } else {
                         return Uni.createFrom().item(Response.status(Response.Status.UNAUTHORIZED).build());
