@@ -2,6 +2,9 @@ package africa.flot.application.command;
 
 import africa.flot.domain.event.SubscriberCreatedEvent;
 import africa.flot.domain.model.Subscriber;
+import africa.flot.domain.model.Account;
+import africa.flot.domain.model.enums.SubscriberStatus;
+import africa.flot.domain.repository.AccountRepository;
 import africa.flot.domain.repository.SubscriberRepository;
 import africa.flot.infrastructure.messaging.QuarkusEventBus;
 import africa.flot.infrastructure.security.AuthService;
@@ -17,7 +20,9 @@ import java.util.UUID;
 public class SubscriberCommandHandler {
 
     @Inject
-    SubscriberRepository repository;
+    SubscriberRepository subscriberRepository;
+    @Inject
+    AccountRepository accountRepository;
     @Inject
     SubscriberMapper mapper;
     @Inject
@@ -25,32 +30,46 @@ public class SubscriberCommandHandler {
     @Inject
     AuthService authService;
 
-
     public Uni<UUID> handle(CreateSubscriberCommand command) {
         Subscriber subscriber = mapper.toEntity(command);
-        return authService.registerSubscriber(subscriber, command.password())
-                .onItem().transformToUni(__ -> repository.persist(subscriber))
+        return subscriberRepository.persist(subscriber)
                 .onItem().transform(s -> {
                     eventBus.publish(new SubscriberCreatedEvent(s.id, s.email));
                     return s.id;
                 });
     }
 
-    public Uni<Void> verifyKYB(UUID subscriberId) {
-        return repository.findById(subscriberId)
-                .onItem().ifNotNull().invoke(Subscriber::verifyKYB)
-                .onItem().ifNotNull().call(repository::persist).replaceWithVoid();
+    public Uni<Void> validateSubscriber(UUID subscriberId) {
+        return subscriberRepository.findById(subscriberId)
+                .onItem().ifNotNull().invoke(subscriber -> subscriber.updateStatus(SubscriberStatus.VALIDE))
+                .onItem().ifNotNull().transformToUni(subscriber -> subscriberRepository.merge(subscriber))
+                .onItem().ifNotNull().transformToUni(this::createAccount)
+                .replaceWithVoid();
     }
 
-    public Uni<Void> rejectKYB(UUID subscriberId) {
-        return repository.findById(subscriberId)
-                .onItem().ifNotNull().invoke(Subscriber::rejectKYB)
-                .onItem().ifNotNull().call(repository::persist).replaceWithVoid();
+    private Uni<Account> createAccount(Subscriber subscriber) {
+        Account account = new Account();
+        account.subscriber = subscriber;
+        account.username = subscriber.email;
+        return authService.hashPassword(subscriber.email) // Assuming you have a method to generate a default password
+                .onItem().transform(hashedPassword -> {
+                    account.passwordHash = hashedPassword;
+                    return account;
+                })
+                .chain(accountRepository::persist);
     }
 
-    public Uni<Void> deactivateSubscriber(UUID subscriberId) {
-        return repository.findById(subscriberId)
-                .onItem().ifNotNull().invoke(Subscriber::deactivate)
-                .onItem().ifNotNull().call(repository::persist).replaceWithVoid();
+    public Uni<Void> updateSubscriberStatus(UUID subscriberId, SubscriberStatus newStatus) {
+        return subscriberRepository.findById(subscriberId)
+                .onItem().ifNotNull().invoke(subscriber -> subscriber.updateStatus(newStatus))
+                .onItem().ifNotNull().call(subscriberRepository::persist)
+                .replaceWithVoid();
+    }
+
+    public Uni<Void> deactivateAccount(UUID subscriberId) {
+        return accountRepository.findBySubscriberId(subscriberId)
+                .onItem().ifNotNull().invoke(Account::deactivate)
+                .onItem().ifNotNull().call(accountRepository::persist)
+                .replaceWithVoid();
     }
 }

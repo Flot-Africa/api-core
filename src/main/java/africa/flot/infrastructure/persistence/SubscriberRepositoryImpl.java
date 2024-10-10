@@ -28,6 +28,13 @@ public class SubscriberRepositoryImpl implements SubscriberRepository, PanacheRe
         return PanacheRepositoryBase.super.persistAndFlush(subscriber);
     }
 
+    @WithSession
+    public Uni<Subscriber> merge(Subscriber subscriber) {
+        return getSession()
+                .chain(session -> session.merge(subscriber))
+                .chain(this::persistAndFlush);
+    }
+
     @Override
     @WithSession
     public Uni<Subscriber> findByEmail(String email) {

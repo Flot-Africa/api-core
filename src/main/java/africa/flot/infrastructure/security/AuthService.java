@@ -1,7 +1,8 @@
 package africa.flot.infrastructure.security;
 
+import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Subscriber;
-import africa.flot.domain.repository.SubscriberRepository;
+import africa.flot.domain.repository.AccountRepository;
 import africa.flot.infrastructure.persistence.UserRepositoryImpl;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.smallrye.jwt.build.Jwt;
@@ -12,7 +13,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @ApplicationScoped
 public class AuthService {
@@ -20,7 +24,7 @@ public class AuthService {
     private static final Logger LOG = Logger.getLogger(AuthService.class);
 
     @Inject
-    SubscriberRepository subscriberRepository;
+    AccountRepository accountRepository;
 
     @Inject
     UserRepositoryImpl userRepository;
@@ -31,20 +35,20 @@ public class AuthService {
     @ConfigProperty(name = "jwt.duration", defaultValue = "PT1H")
     Duration jwtDuration;
 
-    public Uni<Boolean> authenticateSubscriber(String phone, String password) {
-        if (phone == null || phone.isEmpty() || password == null || password.isEmpty()) {
+    public Uni<Boolean> authenticateSubscriber(String username, String password) {
+        if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
             LOG.warn("Tentative d'authentification abonné avec des identifiants vides ou nuls");
             return Uni.createFrom().item(false);
         }
 
-        return subscriberRepository.findByPhone(phone)
-                .onItem().transform(subscriber -> {
-                    if (subscriber != null) {
-                        boolean matches = BcryptUtil.matches(password, subscriber.password);
-                        LOG.info("Tentative d'authentification abonné pour " + phone + ": " + (matches ? "réussie" : "échouée"));
+        return accountRepository.findByUsername(username)
+                .onItem().transform(account -> {
+                    if (account != null && account.isActive) {
+                        boolean matches = BcryptUtil.matches(password, account.passwordHash);
+                        LOG.info("Tentative d'authentification abonné pour " + username + ": " + (matches ? "réussie" : "échouée"));
                         return matches;
                     }
-                    LOG.warn("Aucun abonné trouvé pour le numéro : " + phone);
+                    LOG.warn("Aucun compte actif trouvé pour l'utilisateur : " + username);
                     return false;
                 })
                 .onFailure().invoke(e -> LOG.error("Erreur lors de l'authentification abonné", e));
@@ -74,27 +78,39 @@ public class AuthService {
                 .onFailure().invoke(e -> LOG.error("Erreur lors de l'authentification admin", e));
     }
 
-    public Uni<String> generateSubscriberJWT(String phone) {
-        return subscriberRepository.findByPhone(phone)
-                .onItem().transform(subscriber -> {
-                    if (subscriber != null) {
+    public Uni<Map<String, Object>> generateSubscriberJWT(String username) {
+        if (username == null) {
+            LOG.warn("generateSubscriberJWT: Invalid username received, username is null");
+            return Uni.createFrom().failure(new IllegalArgumentException("Invalid input: username must not be null"));
+        }
+        return accountRepository.findByUsername(username)
+                .onItem().transform(account -> {
+                    if (account != null && account.isActive) {
                         String token = Jwt.issuer(issuer)
-                                .subject(subscriber.id.toString())
+                                .subject(account.id.toString())
                                 .groups(Set.of("SUBSCRIBER"))
-                                .claim("phone", subscriber.phone)
-                                .claim("email", subscriber.email)
+                                .claim("username", account.username)
+                                .claim("subscriberId", account.subscriber.id.toString())
                                 .expiresIn(jwtDuration)
                                 .sign();
-                        LOG.info("JWT généré pour l'abonné " + phone);
-                        return token;
+                        LOG.info("JWT généré pour l'abonné " + username);
+                        Map<String, Object> jwtData = new HashMap<>();
+                        jwtData.put("token", token);
+                        jwtData.put("expiresIn", jwtDuration.getSeconds());
+                        return jwtData;
                     }
-                    LOG.warn("Impossible de générer JWT pour un abonné non trouvé : " + phone);
+                    LOG.warn("Impossible de générer JWT pour un compte non trouvé ou inactif : " + username);
                     return null;
                 })
                 .onFailure().invoke(e -> LOG.error("Erreur lors de la génération du JWT abonné", e));
     }
 
-    public Uni<String> generateAdminJWT(String email) {
+
+    public Uni<Map<String, Object>> generateAdminJWT(String email) {
+        if (email == null) {
+            LOG.warn("generateAdminJWT: Invalid email received, email is null");
+            return Uni.createFrom().failure(new IllegalArgumentException("Invalid input: email must not be null"));
+        }
         return userRepository.findByEmail(email)
                 .onItem().transform(user -> {
                     if (user != null) {
@@ -105,7 +121,10 @@ public class AuthService {
                                 .expiresIn(jwtDuration)
                                 .sign();
                         LOG.info("JWT généré pour l'admin " + email);
-                        return token;
+                        Map<String, Object> jwtData = new HashMap<>();
+                        jwtData.put("token", token);
+                        jwtData.put("expiresIn", jwtDuration.getSeconds());
+                        return jwtData;
                     }
                     LOG.warn("Impossible de générer JWT pour un admin non trouvé : " + email);
                     return null;
@@ -113,14 +132,36 @@ public class AuthService {
                 .onFailure().invoke(e -> LOG.error("Erreur lors de la génération du JWT admin", e));
     }
 
-    public Uni<Void> registerSubscriber(Subscriber subscriber, String password) {
-        if (subscriber == null || password == null || password.isEmpty()) {
-            LOG.warn("Tentative d'enregistrement avec des données invalides");
-            return Uni.createFrom().failure(new IllegalArgumentException("Données d'enregistrement invalides"));
+    public Uni<String> hashPassword(String password) {
+        if (password == null || password.isEmpty()) {
+            LOG.warn("Tentative de hachage d'un mot de passe vide ou nul");
+            return Uni.createFrom().failure(new IllegalArgumentException("Le mot de passe ne peut pas être vide ou nul"));
         }
 
-        subscriber.password = BcryptUtil.bcryptHash(password);
-        LOG.info("Enregistrement d'un nouvel abonné : " + subscriber.email);
-        return Uni.createFrom().voidItem();
+        return Uni.createFrom().item(() -> {
+            String hashedPassword = BcryptUtil.bcryptHash(password);
+            LOG.info("Mot de passe haché avec succès");
+            return hashedPassword;
+        }).onFailure().invoke(e -> LOG.error("Erreur lors du hachage du mot de passe", e));
+    }
+
+    public Uni<Void> createAccount(UUID subscriberId, String username, String password) {
+        if (subscriberId == null || username == null || username.isEmpty() || password == null || password.isEmpty()) {
+            LOG.warn("Tentative de création de compte avec des données invalides");
+            return Uni.createFrom().failure(new IllegalArgumentException("Données de création de compte invalides"));
+        }
+
+        return hashPassword(password)
+                .onItem().transformToUni(hashedPassword -> {
+                    Account account = new Account();
+                    account.subscriber = new Subscriber();
+                    account.subscriber.id = subscriberId;
+                    account.username = username;
+                    account.passwordHash = hashedPassword;
+                    account.isActive = true;
+                    return accountRepository.persist(account);
+                })
+                .onItem().invoke(() -> LOG.info("Nouveau compte créé pour l'abonné : " + username))
+                .replaceWithVoid();
     }
 }
