@@ -1,7 +1,7 @@
 package africa.flot.infrastructure.persistence;
 
 import africa.flot.domain.model.User;
-import africa.flot.domain.repository.UserRepository;
+import africa.flot.infrastructure.repository.UserRepository;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;

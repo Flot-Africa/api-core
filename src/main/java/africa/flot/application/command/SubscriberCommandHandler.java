@@ -1,3 +1,4 @@
+/*
 package africa.flot.application.command;
 
 import africa.flot.domain.event.SubscriberCreatedEvent;
@@ -8,7 +9,6 @@ import africa.flot.domain.repository.AccountRepository;
 import africa.flot.domain.repository.SubscriberRepository;
 import africa.flot.infrastructure.messaging.QuarkusEventBus;
 import africa.flot.infrastructure.security.AuthService;
-import africa.flot.presentation.mapper.SubscriberMapper;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -72,4 +72,4 @@ public class SubscriberCommandHandler {
                 .onItem().ifNotNull().call(accountRepository::persist)
                 .replaceWithVoid();
     }
-}
+}*/
