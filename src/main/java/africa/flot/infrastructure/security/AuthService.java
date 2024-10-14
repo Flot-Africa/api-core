@@ -2,7 +2,7 @@ package africa.flot.infrastructure.security;
 
 import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Subscriber;
-import africa.flot.domain.repository.AccountRepository;
+import africa.flot.infrastructure.repository.AccountRepository;
 import africa.flot.infrastructure.persistence.UserRepositoryImpl;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.smallrye.jwt.build.Jwt;
