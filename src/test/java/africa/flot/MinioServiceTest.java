@@ -28,16 +28,16 @@ public class MinioServiceTest {
         // Préparez un fichier test dans Minio
         minioClient.uploadObject(
                 UploadObjectArgs.builder()
-                        .bucket("test-bucket")
-                        .object("test-image.jpg")
-                        .filename("/chemin/vers/image.jpg")
+                        .bucket("flotkyb")
+                        .object("CNI-RECTO.jpeg")
+                        .filename("tmp/CNI-RECTO.jpeg")
                         .build()
         );
     }
 
     @Test
     public void testGetFile() {
-        Uni<Path> fileUni = minioService.getFile("test-bucket", "test-image.jpg", "/tmp/test-image.jpg");
+        Uni<Path> fileUni = minioService.getFile("flotkyb", "CNI-RECTO.jpeg", "/tmp/CNI-RECTO.jpeg");
         Path filePath = fileUni.await().indefinitely();
         assertNotNull(filePath);
         assertTrue(Files.exists(filePath));
