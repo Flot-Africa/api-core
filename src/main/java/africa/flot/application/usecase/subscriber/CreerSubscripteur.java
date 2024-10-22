@@ -6,7 +6,7 @@ import africa.flot.application.ports.SubscripteurRepositoryPorts;
 import africa.flot.domain.model.Subscriber;
 import africa.flot.domain.model.enums.SubscriberStatus;
 import africa.flot.domain.model.valueobject.Address;
-import africa.flot.presentation.util.ApiResponseBuilder;
+import africa.flot.infrastructure.util.ApiResponseBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
