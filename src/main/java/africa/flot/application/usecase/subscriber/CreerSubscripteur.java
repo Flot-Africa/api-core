@@ -20,7 +20,7 @@ public class CreerSubscripteur {
     private static final Logger LOG = Logger.getLogger(ApiResponseBuilder.class);
 
     @Inject
-    private final SubscripteurRepositoryPorts subscripteurRepositoryPorts;
+    SubscripteurRepositoryPorts subscripteurRepositoryPorts;
 
 
     @Inject
