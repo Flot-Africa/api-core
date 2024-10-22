@@ -37,7 +37,10 @@ nb-configuration.xml
 *.rej
 
 # Local environment
+# Environment variables
 .env
+.env.*
+!.env.example
 
 # Plugin directory
 /.quarkus/cli/plugins/
