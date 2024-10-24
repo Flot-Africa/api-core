@@ -1,52 +1,68 @@
 package africa.flot.application.dto.query;
 
 import io.vertx.core.json.JsonObject;
+import lombok.Data;
 
-import java.util.HashMap;
-import java.util.Map;
-
+@Data
 public class DanayaVerificationResult {
     private String id;
     private String createdAt;
     private String status;
-    private OcrData ocrData;
-    private Map<String, JsonObject> verificationResults = new HashMap<>();
+    private PersonalInfo personalInfo;
+    private VerificationScores verificationScores;
 
-    public static class OcrData {
+    @Data
+    public static class PersonalInfo {
+        private Identity identity;
+        private Residence residence;
+        private FamilyInfo familyInfo;
+    }
+
+    @Data
+    public static class Identity {
         private String firstName;
         private String lastName;
         private String dateOfBirth;
         private String documentExpiry;
         private String nni;
-
-        public OcrData(String firstName, String lastName, String dateOfBirth,
-                       String documentExpiry, String nni) {
-            this.firstName = firstName;
-            this.lastName = lastName;
-            this.dateOfBirth = dateOfBirth;
-            this.documentExpiry = documentExpiry;
-            this.nni = nni;
-        }
-
-        // Getters
-        public String getFirstName() { return firstName; }
-        public String getLastName() { return lastName; }
-        public String getDateOfBirth() { return dateOfBirth; }
-        public String getDocumentExpiry() { return documentExpiry; }
-        public String getNni() { return nni; }
+        private String gender;
+        private String placeOfBirth;
+        private String nationality;
+        private String documentNumber;
     }
 
-    // Getters and setters
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    public String getCreatedAt() { return createdAt; }
-    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public OcrData getOcrData() { return ocrData; }
-    public void setOcrData(OcrData ocrData) { this.ocrData = ocrData; }
-    public Map<String, JsonObject> getVerificationResults() { return verificationResults; }
-    public void addVerificationResult(String type, JsonObject result) {
-        verificationResults.put(type, result);
+    @Data
+    public static class Residence {
+        private String address;
+        private String town;
+    }
+
+    @Data
+    public static class FamilyInfo {
+        private ParentInfo father;
+        private ParentInfo mother;
+        private String spouseName;
+    }
+
+    @Data
+    public static class ParentInfo {
+        private String firstName;
+        private String lastName;
+        private String birthDate;
+        private String uin;
+    }
+
+    @Data
+    public static class VerificationScores {
+        private String expiration;
+        private DBCheckScores dbCheck;
+    }
+
+    @Data
+    public static class DBCheckScores {
+        private Integer firstName;
+        private Integer lastName;
+        private Integer dateOfBirth;
+        private Integer gender;
     }
 }
