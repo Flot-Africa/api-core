@@ -13,7 +13,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import africa.flot.infrastructure.minio.MinioService;
-import org.jboss.logging.Logger;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -87,6 +86,7 @@ public class DanayaService {
                                     bucketName, error.getMessage()));
                 });
     }
+
     private Uni<DanayaVerificationResult> pollVerificationStatus(String verificationUuid, int attemptCount) {
         if (attemptCount >= maxPollingAttempts) {
             String errorMsg = String.format("Délai d'attente dépassé [uuid=%s, tentatives=%d]",
@@ -118,39 +118,36 @@ public class DanayaService {
                             "Statut vérification [uuid=%s, status=%s, tentative=%d]",
                             verificationUuid, result.getStatus(), attemptCount));
 
-                    return switch (result.getStatus()) {
-                        case "EN_COURS" -> {
+                    switch (result.getStatus()) {
+                        case "EN_COURS":
                             logger.danayaDebug(String.format(
                                     "Vérification en cours [uuid=%s, tentative=%d]",
                                     verificationUuid, attemptCount));
-                            yield Uni.createFrom().nullItem()
+                            return Uni.createFrom().nullItem()
                                     .onItem().delayIt().by(Duration.ofSeconds(pollingIntervalSeconds))
                                     .flatMap(ignored -> pollVerificationStatus(verificationUuid, attemptCount + 1));
-                        }
-                        case "A_TRAITER" -> {
+                        case "A_TRAITER":
                             logger.danayaInfo(String.format(
                                     "Vérification terminée avec succès [uuid=%s]", verificationUuid));
                             logger.auditAction("SYSTEM", "VERIFICATION_SUCCESS",
                                     String.format("Vérification réussie [uuid=%s]", verificationUuid));
-                            yield Uni.createFrom().item(result);
-                        }
-                        case "ERREUR" -> {
+                            return Uni.createFrom().item(result);
+                        case "ERREUR":
                             String errorMsg = String.format("Échec de la vérification [uuid=%s]", verificationUuid);
                             logger.error(errorMsg);
                             logger.auditAction("SYSTEM", "VERIFICATION_ERROR",
                                     String.format("Échec vérification [uuid=%s]", verificationUuid));
-                            yield Uni.createFrom().failure(new RuntimeException(errorMsg));
-                        }
-                        default -> {
-                            String errorMsg = String.format(
+                            return Uni.createFrom().failure(new RuntimeException(errorMsg));
+                        default:
+                            errorMsg = String.format(
                                     "Statut de vérification invalide [uuid=%s, status=%s]",
                                     verificationUuid, result.getStatus());
                             logger.error(errorMsg);
-                            yield Uni.createFrom().failure(new RuntimeException(errorMsg));
-                        }
-                    };
+                            return Uni.createFrom().failure(new RuntimeException(errorMsg));
+                    }
                 });
     }
+
     public Uni<JsonObject> verifyIdDocument(String bucketName, String frontImageName, String backImageName) {
         logger.danayaDebug(String.format(
                 "Récupération fichiers MinIO [bucket=%s, front=%s, back=%s]",
@@ -242,15 +239,25 @@ public class DanayaService {
                     });
         });
     }
+
+    // Updated parseDanayaResponse method
     private DanayaVerificationResult parseDanayaResponse(JsonObject response) {
-        logger.danayaDebug("Parsing réponse Danaya");
+        logger.danayaDebug("Parsing Danaya response");
 
         DanayaVerificationResult result = new DanayaVerificationResult();
-        result.setId(response.getString("id"));
+        result.setId(response.getString("clientFileToAnalyzeId"));
         result.setCreatedAt(response.getString("createdAt"));
         result.setStatus(response.getString("status"));
 
-        // Parse verification results if documents exist
+        // Initialize PersonalInfo
+        DanayaVerificationResult.PersonalInfo personalInfo = new DanayaVerificationResult.PersonalInfo();
+        result.setPersonalInfo(personalInfo);
+
+        // Initialize VerificationScores
+        DanayaVerificationResult.VerificationScores verificationScores = new DanayaVerificationResult.VerificationScores();
+        result.setVerificationScores(verificationScores);
+
+        // Parse documents array
         if (response.containsKey("documents") && !response.getJsonArray("documents").isEmpty()) {
             JsonObject document = response.getJsonArray("documents")
                     .stream()
@@ -262,26 +269,81 @@ public class DanayaService {
             if (document != null) {
                 JsonObject ocrData = document.getJsonObject("ocrExtractedData");
                 if (ocrData != null) {
-                    logger.danayaDebug("Données OCR trouvées, extraction des informations");
-                    result.setOcrData(new DanayaVerificationResult.OcrData(
-                            ocrData.getString("first_name"),
-                            ocrData.getString("last_name"),
-                            ocrData.getString("date_of_birth"),
-                            ocrData.getString("document_expiry"),
-                            ocrData.getString("nni")
-                    ));
+                    logger.danayaDebug("OCR data found, extracting information");
+
+                    // Populate Identity data
+                    DanayaVerificationResult.Identity identity = new DanayaVerificationResult.Identity();
+                    identity.setFirstName(ocrData.getString("first_name"));
+                    identity.setLastName(ocrData.getString("last_name"));
+                    identity.setDateOfBirth(ocrData.getString("date_of_birth"));
+                    identity.setDocumentExpiry(ocrData.getString("document_expiry"));
+                    identity.setNni(ocrData.getString("nni"));
+                    identity.setGender(ocrData.getString("gender"));
+                    identity.setPlaceOfBirth(ocrData.getString("place_of_birth"));
+                    identity.setNationality(ocrData.getString("nationality"));
+                    identity.setDocumentNumber(ocrData.getString("document_number"));
+
+                    personalInfo.setIdentity(identity);
+
+                    // Initialize FamilyInfo and Residence
+                    DanayaVerificationResult.FamilyInfo familyInfo = new DanayaVerificationResult.FamilyInfo();
+                    personalInfo.setFamilyInfo(familyInfo);
+
+                    DanayaVerificationResult.Residence residence = new DanayaVerificationResult.Residence();
+                    personalInfo.setResidence(residence);
                 }
 
                 // Parse verification results
                 if (document.containsKey("verificationResults")) {
-                    logger.danayaDebug("Traitement des résultats de vérification");
+                    logger.danayaDebug("Processing verification results");
                     document.getJsonArray("verificationResults")
                             .stream()
                             .map(obj -> (JsonObject) obj)
                             .forEach(verification -> {
                                 String type = verification.getString("type");
-                                JsonObject scoring = verification.getJsonObject("scoring");
-                                result.addVerificationResult(type, scoring);
+
+                                if ("EXPIRATION_CHECK".equals(type)) {
+                                    JsonObject scoring = verification.getJsonObject("scoring");
+                                    verificationScores.setExpiration(scoring.getString("score"));
+                                } else if ("DB_CHECK".equals(type)) {
+                                    JsonObject scoring = verification.getJsonObject("scoring");
+                                    DanayaVerificationResult.DBCheckScores dbCheckScores = new DanayaVerificationResult.DBCheckScores();
+                                    dbCheckScores.setFirstName(scoring.getInteger("firstNameMatchingScore", 0));
+                                    dbCheckScores.setLastName(scoring.getInteger("lastNameMatchingScore", 0));
+                                    dbCheckScores.setDateOfBirth(scoring.getInteger("dateOfBirthMatchingScore", 0));
+                                    dbCheckScores.setGender(scoring.getInteger("genderMatchingScore", 0));
+                                    verificationScores.setDbCheck(dbCheckScores);
+
+                                    // Parse rawData for additional personal info
+                                    String rawDataString = scoring.getString("rawData");
+                                    if (rawDataString != null) {
+                                        JsonObject rawData = new JsonObject(rawDataString);
+
+                                        // Extract Residence info
+                                        DanayaVerificationResult.Residence residence = personalInfo.getResidence();
+                                        residence.setAddress(rawData.getString("RESIDENCE_ADR_1"));
+                                        residence.setTown(rawData.getString("RESIDENCE_TOWN"));
+
+                                        // Extract Father info
+                                        DanayaVerificationResult.ParentInfo father = new DanayaVerificationResult.ParentInfo();
+                                        father.setFirstName(rawData.getString("FATHER_FIRST_NAME"));
+                                        father.setLastName(rawData.getString("FATHER_LAST_NAME"));
+                                        father.setBirthDate(rawData.getString("FATHER_BIRTH_DATE"));
+                                        father.setUin(rawData.getString("FATHER_UIN"));
+                                        personalInfo.getFamilyInfo().setFather(father);
+
+                                        // Extract Mother info
+                                        DanayaVerificationResult.ParentInfo mother = new DanayaVerificationResult.ParentInfo();
+                                        mother.setFirstName(rawData.getString("MOTHER_FIRST_NAME"));
+                                        mother.setLastName(rawData.getString("MOTHER_LAST_NAME"));
+                                        mother.setBirthDate(rawData.getString("MOTHER_BIRTH_DATE"));
+                                        mother.setUin(rawData.getString("MOTHER_UIN"));
+                                        personalInfo.getFamilyInfo().setMother(mother);
+
+                                        // Extract Spouse Name
+                                        personalInfo.getFamilyInfo().setSpouseName(rawData.getString("SPOUSE_NAME"));
+                                    }
+                                }
                             });
                 }
             }
