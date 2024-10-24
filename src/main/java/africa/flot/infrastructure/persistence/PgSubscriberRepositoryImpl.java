@@ -3,7 +3,7 @@ package africa.flot.infrastructure.persistence;
 import africa.flot.application.ports.SubscripteurRepositoryPorts;
 import africa.flot.domain.model.Subscriber;
 import africa.flot.infrastructure.repository.SubscripteurRepository;
-import africa.flot.presentation.util.ApiResponseBuilder;
+import africa.flot.infrastructure.util.ApiResponseBuilder;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
