@@ -44,9 +44,12 @@ jobs:
           DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
           VERSION: ${{ env.VERSION }}
         run: |
-          mvn clean package -Pnative \
+          mvn clean package -Pnative -DskipTests=true \
             -Dquarkus.native.container-build=true \
             -Dquarkus.container-image.push=true \
+            -Dquarkus.container-image.registry=docker.io \
+            -Dquarkus.container-image.group=flot701 \
+            -Dquarkus.container-image.name=flot-api \
             -Dquarkus.container-image.tag=${VERSION}
 
       - name: Trigger Coolify Deployment
