@@ -1,11 +1,10 @@
-package africa.flot.presentation.util;
+package africa.flot.infrastructure.util;
 
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import org.jboss.logging.Logger;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 public class ApiResponseBuilder {
 

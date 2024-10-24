@@ -1,17 +1,10 @@
-package africa.flot.domain.model;
-
-import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
+package africa.flot.application.command.documentcommande;
 
 import java.util.UUID;
 
-@Entity
-public class KYBDocuments extends PanacheEntityBase {
-    @Id
-    @GeneratedValue
-    public UUID id;
+public class ModifieKYBDocumentCommande {
+
+    private UUID id;
     public boolean cniUploadee;
     public int cniProgressionVerification;
     public boolean justificatifDomicileUploade;

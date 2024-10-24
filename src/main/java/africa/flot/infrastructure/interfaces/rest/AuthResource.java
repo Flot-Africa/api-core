@@ -3,7 +3,7 @@ package africa.flot.infrastructure.interfaces.rest;
 import africa.flot.application.auth.AdminAuthCommand;
 import africa.flot.application.auth.SubscriberAuthCommand;
 import africa.flot.infrastructure.security.AuthService;
-import africa.flot.presentation.util.ApiResponseBuilder;
+import africa.flot.infrastructure.util.ApiResponseBuilder;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.PermitAll;
