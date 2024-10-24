@@ -1,34 +1,25 @@
-package africa.flot.domain.model.valueobject;
+package africa.flot.application.command;
 
-import jakarta.persistence.Embeddable;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.Getter;
 
-@Embeddable
-@Getter
-public class Address {
+public class AdresseCommande {
 
     @NotBlank(message = "La ville de naissance est obligatoire")
     @Size(max = 255, message = "La ville de naissance ne doit pas dépasser 255 caractères")
     private String villeNaissance;
 
-    @NotBlank(message = "La zone de résidence est obligatoire")
-    @Size(max = 255, message = "La zone de résidence ne doit pas dépasser 255 caractères")
+    @NotBlank(message = "La zone de residence est obligatoire")
+    @Size(max = 255, message = "La zone de residence  ne doit pas dépasser 255 caractères")
     private String zoneResidence;
+
 
     @NotBlank(message = "Le pays de naissance est obligatoire")
     @Size(max = 255, message = "Le pays de naissance ne doit pas dépasser 255 caractères")
-    private String paysNaissance;
+    public String paysNaissance;
 
-    // Getters et Setters
 
-    public String getVilleNaissance() {
-        return villeNaissance;
-    }
-
-    public void setVilleNaissance(String villeNaissance) {
-        this.villeNaissance = villeNaissance;
+    public AdresseCommande() {
     }
 
     public String getZoneResidence() {
@@ -45,5 +36,13 @@ public class Address {
 
     public void setPaysNaissance(String paysNaissance) {
         this.paysNaissance = paysNaissance;
+    }
+
+    public String getVilleNaissance() {
+        return villeNaissance;
+    }
+
+    public void setVilleNaissance(String villeNaissance) {
+        this.villeNaissance = villeNaissance;
     }
 }
