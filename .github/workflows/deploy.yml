@@ -1,5 +1,4 @@
-name: Deploy to Production
-
+name: Build and Deploy
 on:
   push:
     branches: [ main ]
@@ -53,34 +52,5 @@ jobs:
 
       - name: Trigger Coolify Deployment
         run: |
-          curl -X POST "${{ secrets.COOLIFY_WEBHOOK }}" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-            --fail \
-            -d @- << EOF
-            {
-              "type": "deployment",
-              "payload": {
-                "repository": "${{ github.repository }}",
-                "branch": "${{ github.ref_name }}",
-                "commit": "${{ github.sha }}",
-                "manual": true,
-                "forceRebuild": true,
-                "imageTag": "${{ env.VERSION }}",
-                "environment": {
-                  "DB_USER": "${{ secrets.DB_USER }}",
-                  "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}",
-                  "DB_NAME": "${{ secrets.DB_NAME }}",
-                  "METRICS_USERNAME": "${{ secrets.METRICS_USERNAME }}",
-                  "METRICS_PASSWORD": "${{ secrets.METRICS_PASSWORD }}",
-                  "MINIO_URL": "${{ secrets.MINIO_URL }}",
-                  "MINIO_ACCESS_KEY": "${{ secrets.MINIO_ACCESS_KEY }}",
-                  "MINIO_SECRET_KEY": "${{ secrets.MINIO_SECRET_KEY }}",
-                  "MINIO_BUCKET_NAME": "${{ secrets.MINIO_BUCKET_NAME }}",
-                  "DANAYA_API_URL": "${{ secrets.DANAYA_API_URL }}",
-                  "DANAYA_API_KEY": "${{ secrets.DANAYA_API_KEY }}",
-                  "DANAYA_API_SECRET": "${{ secrets.DANAYA_API_SECRET }}"
-                }
-              }
-            }
-          EOF
+          curl --request GET '${{ secrets.COOLIFY_WEBHOOK }}' \
+            --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}'
