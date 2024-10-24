@@ -3,8 +3,10 @@ package africa.flot.domain.model.valueobject;
 import jakarta.persistence.Embeddable;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.Getter;
 
 @Embeddable
+@Getter
 public class Address {
 
     @NotBlank(message = "La ville de naissance est obligatoire")

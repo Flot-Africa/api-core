@@ -14,7 +14,7 @@ import java.util.UUID;
 public class ModifierSubscriber {
 
     @Inject
-    private final SubscripteurRepositoryPorts subscripteurRepositoryPorts;
+    SubscripteurRepositoryPorts subscripteurRepositoryPorts;
 
     @Inject
     public ModifierSubscriber(SubscripteurRepositoryPorts subscripteurRepositoryPorts) {
