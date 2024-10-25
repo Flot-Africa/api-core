@@ -1,5 +1,0 @@
-[phases.build]
-cmds = ['mvn clean package -Pnative -DskipTests']
-
-[start]
-cmd = 'java -jar target/your-application.jar'
