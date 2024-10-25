@@ -1,8 +1,9 @@
 package africa.flot.application.dto.query;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import io.vertx.core.json.JsonObject;
 import lombok.Data;
-
+@RegisterForReflection
 @Data
 public class DanayaVerificationResult {
     private String id;
