@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ['jdk21', 'maven']
+
+[phases.install]
+cmds = ['mvn dependency:go-offline']
+
+[phases.build]
+cmds = ['mvn clean package -Pnative -DskipTests']
+
+[start]
+cmd = 'java -jar target/*.jar'
