@@ -32,6 +32,7 @@ public class MinioService {
             )) {
                 Path filePath = Path.of(outputPath);
                 Files.copy(fileStream, filePath, StandardCopyOption.REPLACE_EXISTING);
+                LOG.info("Fichier recuperé depuis Minio" + objectName + " [path=" + filePath + "]");
                 return filePath;
             } catch (Exception e) {
                 LOG.error("Erreur lors de la récupération du fichier depuis Minio", e);

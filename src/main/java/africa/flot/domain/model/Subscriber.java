@@ -1,7 +1,7 @@
 package africa.flot.domain.model;
 
 import africa.flot.domain.model.enums.Habitation;
-import africa.flot.domain.model.enums.SituationMatrimoniale;
+import africa.flot.domain.model.enums.MaritalStatus;
 import africa.flot.domain.model.enums.SubscriberStatus;
 import africa.flot.domain.model.valueobject.Address;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
@@ -61,7 +61,7 @@ public class Subscriber extends PanacheEntityBase {
 
     @Column(name = "situation_matrimoniale")
     @Enumerated(EnumType.STRING)
-    public SituationMatrimoniale situationMatrimoniale;
+    public MaritalStatus maritalStatus;
 
     @Column(name = "habitation")
     @Enumerated(EnumType.STRING)

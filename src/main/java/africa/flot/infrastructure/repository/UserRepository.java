@@ -7,10 +7,10 @@ import java.util.List;
 import java.util.UUID;
 
 public interface UserRepository {
-    Uni<User> findById(UUID id);
+    Uni<User> findById(Long id);
     Uni<List<User>> listAll();
     Uni<User> persist(User user);
     Uni<User> findByEmail(String email);
-    Uni<Boolean> deleteById(UUID id);
+    Uni<Boolean> deleteById(Long id);
     Uni<User> findByRememberToken(String rememberToken);
 }

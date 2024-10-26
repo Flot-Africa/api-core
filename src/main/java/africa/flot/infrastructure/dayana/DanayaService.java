@@ -1,18 +1,32 @@
 package africa.flot.infrastructure.dayana;
 
 import africa.flot.application.dto.query.DanayaVerificationResult;
+import africa.flot.application.dto.query.KYBStatus;
+import africa.flot.application.exceptions.DocumentNotReadyException;
+import africa.flot.application.repository.DanayaVerificationRepository;
+import africa.flot.application.repository.KYBRepository;
+import africa.flot.domain.model.DanayaVerificationResults;
+import africa.flot.domain.model.KYBDocuments;
 import africa.flot.infrastructure.logging.LoggerUtil;
+import africa.flot.infrastructure.minio.MinioService;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
+import io.quarkus.runtime.LaunchMode;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.subscription.UniEmitter;
+import io.smallrye.mutiny.tuples.Tuple2;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import africa.flot.infrastructure.minio.MinioService;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,11 +34,22 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @ApplicationScoped
 public class DanayaService {
     @Inject
     LoggerUtil logger;
+
+    @Inject
+    KYBRepository kybRepository;
+
+    @Inject
+    MinioService minioService;
+
+    @Inject
+    DanayaVerificationRepository danayaVerificationRepository;
 
     private final WebClient webClient;
 
@@ -46,218 +71,377 @@ public class DanayaService {
     @ConfigProperty(name = "quarkus.rest-client.danaya-api.max-polling-attempts", defaultValue = "60")
     int maxPollingAttempts;
 
-    private static final List<String> DEFAULT_VERIFICATIONS = Arrays.asList(
-            "DB_CHECK",
-            "EXPIRATION_CHECK",
-            "TEMPLATE_CHECK"
-    );
-
-    @Inject
-    MinioService minioService;
-
+    private static final List<String> DEFAULT_VERIFICATIONS = Arrays.asList("DB_CHECK", "EXPIRATION_CHECK", "TEMPLATE_CHECK");
+    private JsonObject loadMockResponse() {
+        String jsonResponse = """
+                {
+                              "id": 1103,
+                              "createdAt": "2024-10-25 11:21:06",
+                              "clientFileToAnalyzeId": "73b9c527-119e-41a8-a00d-007b64b058cf",
+                              "status": "A_TRAITER",
+                              "company": {
+                                  "id": 15,
+                                  "name": "Flot",
+                                  "verifications": []
+                              },
+                              "documents": [
+                                  {
+                                      "id": 1463,
+                                      "type": "CNI",
+                                      "frontUrl": "https://storage.googleapis.com/dayana-mvp.appspot.com/CNI_front_82a307b0-0097-4759-81c9-8081ef786972?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-adminsdk-aanmr%40dayana-mvp.iam.gserviceaccount.com%2F20241026%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20241026T134213Z&X-Goog-Expires=1800&X-Goog-SignedHeaders=host&X-Goog-Signature=293cc4f913efd1f24361a8517fb3c29f157de19552c92ab1be8881dd728520ac5b2d72a3b5f59167e1851f51d13832e88a355f347707098146987d382cdc9635babd0cbf97ede8766c2d9a632a1a90612d94f497cd605850a0e30c9ee22252fc0de5d4a8f7b4cb293c3852d5d2381308fbc2a8f8358b1b6bfe9ca0348b6e8f132cfc7d4fede38a99efe4a8a0459b4533ab4acf096fd4d96c5f675844ea180cbf7341879bbfe154759831e88e9f5816b9171eb15c8019624db7a30cbfd66b5fcac8c91c8d10951fd84ce440d6e20e63bbbc7296fa7c1e8343bf63092d61a6e57a7e6a78e4ceadae5ca320196d692a634a564587fc9c4cb831894c20828c7a8355",
+                                      "backUrl": "https://storage.googleapis.com/dayana-mvp.appspot.com/CNI_back_509a7f4b-3d31-4c1a-bb67-fcbf009d60cd?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-adminsdk-aanmr%40dayana-mvp.iam.gserviceaccount.com%2F20241026%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20241026T134213Z&X-Goog-Expires=1800&X-Goog-SignedHeaders=host&X-Goog-Signature=8399999edb2d39e5e3aa4b3dcf0d55231459adbdccdef825d7bde6fadf91fad5e986e9901bca28f3fcabf9eee1ad1dd6f46c56871cbb81cb852cbb5654d952d38c69035ca273d1cb8978fc929abe407ed0dc37875e3599c47e73177bebef57bc8f4109c828e9b4e8fbb049e0d2fdac52531ea64fbb18284764f8c3510fa311bf3882a1ae92a044704dffb170a07c04e89790ba3085aac69375a10567f915df0fbbb040def79426e71b15ec7dac562b093f9a6cc570d5ead9f288fd2ae5ed146f74d6be8390a4a5a2831a162fade66d9253ab7376f95344df6242b594f34506ce915f09b4131514000dce5d5dafb24a6023063e6d8f0dee8b4ce52a18626897dc",
+                                      "ocrExtractedData": {
+                                          "mrz": "IDCIVCI0045827<787<<<<<<<<<<<<\\n9912245M3208047CIV119902193137\\nYAO<<NGORAN<ELOGE<<<<<<<<<<<<<",
+                                          "nni": "11990219313",
+                                          "image": null,
+                                          "state": null,
+                                          "gender": "M",
+                                          "height": "1,85",
+                                          "message": null,
+                                          "ocr_raw": null,
+                                          "last_name": "YAO",
+                                          "first_name": "N'GORAN ELOGE",
+                                          "profession": "ETUDIANT(E)",
+                                          "father_name": null,
+                                          "mother_name": null,
+                                          "nationality": "IVOIRIENNE",
+                                          "country_code": null,
+                                          "date_of_birth": "24/12/1999",
+                                          "document_code": "CARTE NATIONALE D'IDENTITÉ",
+                                          "place_of_birth": "TOUMODI S/P (CIV)",
+                                          "document_expiry": "04/08/2032",
+                                          "document_number": "CI004582778",
+                                          "father_birthday": null,
+                                          "mother_birthday": null,
+                                          "personal_number": null,
+                                          "permanent_address": null,
+                                          "date_of_birth_yyyy_mm_dd": null,
+                                          "document_expiry_yyyy_mm_dd": null
+                                      },
+                                      "verificationResults": [
+                                          {
+                                              "id": "fbe2b14c-e262-4f76-a1ec-b9e38aed55d7",
+                                              "status": "EXECUTED",
+                                              "lastRunDate": "2024-10-25 11:21:08",
+                                              "type": "EXPIRATION_CHECK",
+                                              "scoring": {
+                                                  "type": "ExpiryDateScoring",
+                                                  "score": "VALID"
+                                              },
+                                              "clientFileDocumentId": 1463
+                                          },
+                                          {
+                                              "id": "ccc1033f-7020-48f2-ab28-c74ec0c00d3e",
+                                              "status": "EXECUTED",
+                                              "lastRunDate": "2024-10-25 11:21:08",
+                                              "type": "DB_CHECK",
+                                              "scoring": {
+                                                  "type": "PersonInfoScoring",
+                                                  "id": 655,
+                                                  "nni": "11990219313",
+                                                  "iDCardNumber": null,
+                                                  "phoneNumber": null,
+                                                  "firstNameMatchingScore": 100,
+                                                  "lastNameMatchingScore": 100,
+                                                  "dateOfBirthMatchingScore": 100,
+                                                  "genderMatchingScore": 100,
+                                                  "phoneNumberMatchingScore": 0,
+                                                  "comparedWithRealData": true,
+                                                  "rawData": "{\\"dateOfBirth\\":\\"1999-12-24\\",\\"UIN\\":\\"11990219313\\",\\"LAST_NAME\\":\\"YAO\\",\\"FIRST_NAME\\":\\"N'GORAN ELOGE\\",\\"GENDER\\":\\"M\\",\\"BIRTH_DATE\\":\\"1999-12-24\\",\\"FATHER_FIRST_NAME\\":\\"KOUASSI VICTOR\\",\\"FATHER_LAST_NAME\\":\\"YAO\\",\\"FATHER_BIRTH_DATE\\":\\"1945-01-01\\",\\"MOTHER_FIRST_NAME\\":\\"AMOIN MARGUERITE\\",\\"MOTHER_LAST_NAME\\":\\"KASSE\\",\\"MOTHER_BIRTH_DATE\\":\\"XX/XX/XXXX\\",\\"RESIDENCE_ADR_1\\":\\"MERMOZ\\",\\"NATIONALITY\\":\\"CIV\\",\\"ID_CARD_NUMBER\\":\\"I007066695\\",\\"BIRTH_TOWN\\":\\"TOUMODI S/P\\",\\"BIRTH_COUNTRY\\":\\"CIV\\",\\"SPOUSE_NAME\\":\\"\\",\\"RESIDENCE_TOWN\\":\\"COCODY\\",\\"FATHER_UIN\\":\\"\\",\\"MOTHER_UIN\\":\\"\\",\\"RESIDENCE_ADR_2\\":\\"\\"}"
+                                              },
+                                              "clientFileDocumentId": 1463
+                                          },
+                                          {
+                                              "type": "DB_CHECK",
+                                              "scoring": {
+                                                  "type": "PersonInfoScoring",
+                                                  "id": 655,
+                                                  "nni": "11990219313",
+                                                  "iDCardNumber": null,
+                                                  "phoneNumber": null,
+                                                  "firstNameMatchingScore": 100,
+                                                  "lastNameMatchingScore": 100,
+                                                  "dateOfBirthMatchingScore": 100,
+                                                  "genderMatchingScore": 100,
+                                                  "phoneNumberMatchingScore": 0,
+                                                  "comparedWithRealData": true,
+                                                  "rawData": "{\\"dateOfBirth\\":\\"1999-12-24\\",\\"UIN\\":\\"11990219313\\",\\"LAST_NAME\\":\\"YAO\\",\\"FIRST_NAME\\":\\"N'GORAN ELOGE\\",\\"GENDER\\":\\"M\\",\\"BIRTH_DATE\\":\\"1999-12-24\\",\\"FATHER_FIRST_NAME\\":\\"KOUASSI VICTOR\\",\\"FATHER_LAST_NAME\\":\\"YAO\\",\\"FATHER_BIRTH_DATE\\":\\"1945-01-01\\",\\"MOTHER_FIRST_NAME\\":\\"AMOIN MARGUERITE\\",\\"MOTHER_LAST_NAME\\":\\"KASSE\\",\\"MOTHER_BIRTH_DATE\\":\\"XX/XX/XXXX\\",\\"RESIDENCE_ADR_1\\":\\"MERMOZ\\",\\"NATIONALITY\\":\\"CIV\\",\\"ID_CARD_NUMBER\\":\\"I007066695\\",\\"BIRTH_TOWN\\":\\"TOUMODI S/P\\",\\"BIRTH_COUNTRY\\":\\"CIV\\",\\"SPOUSE_NAME\\":\\"\\",\\"RESIDENCE_TOWN\\":\\"COCODY\\",\\"FATHER_UIN\\":\\"\\",\\"MOTHER_UIN\\":\\"\\",\\"RESIDENCE_ADR_2\\":\\"\\"}"
+                                              },
+                                              "clientFileDocumentId": 1463
+                                          }
+                                      ]
+                                  }
+                              ]
+                          }
+        """;
+        return new JsonObject(jsonResponse);
+    }
     @Inject
     public DanayaService(Vertx vertx) {
-        WebClientOptions options = new WebClientOptions()
-                .setConnectTimeout(5000)
-                .setIdleTimeout(10000);
+        WebClientOptions options = new WebClientOptions().setConnectTimeout(5000).setIdleTimeout(10000);
         this.webClient = WebClient.create(vertx, options);
     }
 
-    public Uni<DanayaVerificationResult> verifyIdDocumentWithPolling(String bucketName, String frontImageName, String backImageName) {
-        logger.danayaInfo(String.format("Démarrage vérification documents [bucket=%s, front=%s, back=%s]",
-                bucketName, frontImageName, backImageName));
+    @WithSession
+    public Uni<DanayaVerificationResult> verifyIdDocumentWithPolling(String bucketName, String frontImageName, String backImageName, UUID leadId) {
+        return danayaVerificationRepository.findByLeadId(leadId)
+                .flatMap(optionalVerification -> {
+                    if (optionalVerification.isPresent() && "Vérification complète".equals(optionalVerification.get().getStatus())) {
+                        logger.danayaInfo(String.format("Lead déjà vérifié [leadId=%s]. Récupération du statut de vérification actuel.", leadId));
 
-        return verifyIdDocument(bucketName, frontImageName, backImageName)
-                .flatMap(initialResponse -> {
-                    String verificationUuid = initialResponse.getString("id");
-                    logger.danayaInfo(String.format("Documents uploadés avec succès [uuid=%s]", verificationUuid));
-                    logger.auditAction("SYSTEM", "DOCUMENT_UPLOAD",
-                            String.format("Documents uploadés pour vérification [bucket=%s, uuid=%s]",
-                                    bucketName, verificationUuid));
+                        // Utiliser l'ID de DanayaVerificationResults pour vérifier le statut
+                        return checkVerificationStatus(optionalVerification.get().getId())
+                                .flatMap(statusResult -> {
+                                    if ("Vérification complète".equals(statusResult.getStatus()) || statusResult.isValid()) {
+                                        return Uni.createFrom().item(statusResult);
+                                    } else {
+                                        logger.danayaDebug(String.format("Le statut du lead [leadId=%s] a changé ou n'est plus valide.", leadId));
+                                        return Uni.createFrom().item(statusResult);
+                                    }
+                                });
+                    }
 
-                    return Uni.createFrom().nullItem()
-                            .onItem().delayIt().by(Duration.ofSeconds(initialDelaySeconds))
-                            .flatMap(ignored -> pollVerificationStatus(verificationUuid, 0));
+                    logger.danayaInfo(String.format("Démarrage vérification documents [bucket=%s, front=%s, back=%s, leadId=%s]", bucketName, frontImageName, backImageName, leadId));
+
+                    return verifyIdDocument(bucketName, frontImageName, backImageName)
+                            .flatMap(initialResponse -> {
+                                String verificationId = initialResponse.getString("id");
+                                logger.danayaDebug("Initial response: " + initialResponse.encodePrettily());
+                                if (verificationId == null || verificationId.isEmpty()) {
+                                    String errorMessage = String.format("ID de vérification manquant pour le lead [leadId=%s].", leadId);
+                                    logger.error(errorMessage);
+                                    return Uni.createFrom().failure(new RuntimeException(errorMessage));
+                                }
+                                return startVerificationPolling(UUID.fromString(verificationId), leadId);
+                            })
+                            .onFailure().invoke(error -> logVerificationFailure(bucketName, error));
                 })
-                .onFailure().invoke(error -> {
-                    logger.error("Échec de la vérification des documents", error);
-                    logger.auditAction("SYSTEM", "DOCUMENT_UPLOAD_FAILED",
-                            String.format("Échec upload documents [bucket=%s, error=%s]",
-                                    bucketName, error.getMessage()));
+                .onFailure().invoke(error -> logger.error("Erreur lors de la vérification des documents", error));
+    }
+
+    private Uni<DanayaVerificationResult> startVerificationPolling(UUID verificationUuid, UUID leadId) {
+        return Uni.createFrom().nullItem()
+                .onItem().delayIt().by(Duration.ofSeconds(initialDelaySeconds))
+                .flatMap(ignored -> pollVerificationStatus(verificationUuid, 0))
+                .flatMap(result -> updateKYBStatus(result, leadId));
+    }
+
+    @WithTransaction
+    protected Uni<DanayaVerificationResult> updateKYBStatus(DanayaVerificationResult result, UUID leadId) {
+        return kybRepository.findByLeadId(leadId)
+                .flatMap(optionalKybDoc -> {
+                    KYBDocuments kybDoc = optionalKybDoc.orElseGet(() -> createNewKYBDocument(leadId));
+                    updateKYBDocumentFromResult(kybDoc, result);
+                    return kybRepository.persistAndFlush(kybDoc)
+                            .flatMap(savedDoc -> saveVerificationResult(result, leadId))
+                            .map(savedResult -> logKYBUpdateSuccess(leadId, kybDoc, result));
                 });
     }
 
-    private Uni<DanayaVerificationResult> pollVerificationStatus(String verificationUuid, int attemptCount) {
+    private KYBDocuments createNewKYBDocument(UUID leadId) {
+        KYBDocuments newDoc = new KYBDocuments();
+        newDoc.setId(UUID.randomUUID());
+        newDoc.setLeadId(leadId);
+        return newDoc;
+    }
+
+    private DanayaVerificationResult logKYBUpdateSuccess(UUID leadId, KYBDocuments kybDoc, DanayaVerificationResult result) {
+        logger.danayaInfo(String.format("KYB mis à jour [leadId=%s, progression=%d]", leadId, kybDoc.getCniProgressionVerification()));
+        return result;
+    }
+
+    private void logVerificationFailure(String bucketName, Throwable error) {
+        logger.error("Échec de la vérification des documents", error);
+        logger.auditAction("SYSTEM", "DOCUMENT_UPLOAD_FAILED", String.format("Échec upload documents [bucket=%s, error=%s]", bucketName, error.getMessage()));
+    }
+
+    @WithTransaction
+    public Uni<Void> saveVerificationResult(DanayaVerificationResult result, UUID leadId) {
+        logger.danayaDebug("Enregistrement du résultat de vérification pour leadId=" + leadId);
+
+        return danayaVerificationRepository.findByLeadId(leadId)
+                .flatMap(optionalExistingResult -> {
+                    DanayaVerificationResults verificationResult = getDanayaVerificationResults(leadId, optionalExistingResult);
+
+                    verificationResult.updateFromVerificationResult(result);
+
+                    return verificationResult.persistAndFlush()
+                            .onItem().invoke(() -> logger.danayaInfo("Résultat de vérification enregistré pour leadId=" + leadId))
+                            .onFailure().invoke(e -> logger.error("Échec de l'enregistrement du résultat de vérification pour leadId=" + leadId, e))
+                            .replaceWith(Uni.createFrom().voidItem());
+                });
+    }
+
+    private static @NotNull DanayaVerificationResults getDanayaVerificationResults(UUID leadId, Optional<DanayaVerificationResults> optionalExistingResult) {
+        DanayaVerificationResults verificationResult;
+        if (optionalExistingResult.isPresent()) {
+            // Utiliser l'entité existante
+            verificationResult = optionalExistingResult.get();
+        } else {
+            // Créer une nouvelle instance si aucune n'existe
+            verificationResult = new DanayaVerificationResults();
+            verificationResult.setLeadId(leadId);
+        }
+        return verificationResult;
+    }
+
+    private Uni<DanayaVerificationResult> pollVerificationStatus(UUID verificationUuid, int attemptCount) {
         if (attemptCount >= maxPollingAttempts) {
-            String errorMsg = String.format("Délai d'attente dépassé [uuid=%s, tentatives=%d]",
-                    verificationUuid, attemptCount);
-            logger.error(errorMsg);
-            logger.auditAction("SYSTEM", "VERIFICATION_TIMEOUT",
-                    String.format("Timeout vérification [uuid=%s, attempts=%d]",
-                            verificationUuid, attemptCount));
-            return Uni.createFrom().failure(new RuntimeException(errorMsg));
+            return logAndFailPollingTimeout(verificationUuid, attemptCount);
         }
 
         return checkVerificationStatus(verificationUuid)
-                .onFailure().transform(error -> {
-                    if (error.getMessage().contains("404")) {
-                        logger.danayaDebug(String.format(
-                                "Document en cours d'initialisation [uuid=%s, attente=%ds]",
-                                verificationUuid, pollingIntervalSeconds));
-                        return new DocumentNotReadyException();
-                    }
-                    return error;
-                })
-                .onFailure(DocumentNotReadyException.class).recoverWithUni(() ->
-                        Uni.createFrom().nullItem()
-                                .onItem().delayIt().by(Duration.ofSeconds(pollingIntervalSeconds))
-                                .flatMap(ignored -> pollVerificationStatus(verificationUuid, attemptCount + 1))
-                )
-                .flatMap(result -> {
-                    logger.danayaDebug(String.format(
-                            "Statut vérification [uuid=%s, status=%s, tentative=%d]",
-                            verificationUuid, result.getStatus(), attemptCount));
+                .onFailure().transform(this::handleVerificationStatusFailure)
+                .onFailure(DocumentNotReadyException.class)
+                .recoverWithUni(() -> retryPollingStatus(verificationUuid, attemptCount))
+                .flatMap(this::handleVerificationStatusResult);
+    }
 
-                    switch (result.getStatus()) {
-                        case "EN_COURS":
-                            logger.danayaDebug(String.format(
-                                    "Vérification en cours [uuid=%s, tentative=%d]",
-                                    verificationUuid, attemptCount));
-                            return Uni.createFrom().nullItem()
-                                    .onItem().delayIt().by(Duration.ofSeconds(pollingIntervalSeconds))
-                                    .flatMap(ignored -> pollVerificationStatus(verificationUuid, attemptCount + 1));
-                        case "A_TRAITER":
-                            logger.danayaInfo(String.format(
-                                    "Vérification terminée avec succès [uuid=%s]", verificationUuid));
-                            logger.auditAction("SYSTEM", "VERIFICATION_SUCCESS",
-                                    String.format("Vérification réussie [uuid=%s]", verificationUuid));
-                            return Uni.createFrom().item(result);
-                        case "ERREUR":
-                            String errorMsg = String.format("Échec de la vérification [uuid=%s]", verificationUuid);
-                            logger.error(errorMsg);
-                            logger.auditAction("SYSTEM", "VERIFICATION_ERROR",
-                                    String.format("Échec vérification [uuid=%s]", verificationUuid));
-                            return Uni.createFrom().failure(new RuntimeException(errorMsg));
-                        default:
-                            errorMsg = String.format(
-                                    "Statut de vérification invalide [uuid=%s, status=%s]",
-                                    verificationUuid, result.getStatus());
-                            logger.error(errorMsg);
-                            return Uni.createFrom().failure(new RuntimeException(errorMsg));
-                    }
-                });
+    private Uni<DanayaVerificationResult> logAndFailPollingTimeout(UUID verificationUuid, int attemptCount) {
+        String errorMsg = String.format("Délai d'attente dépassé [uuid=%s, tentatives=%d]", verificationUuid, attemptCount);
+        logger.error(errorMsg);
+        logger.auditAction("SYSTEM", "VERIFICATION_TIMEOUT", String.format("Timeout vérification [uuid=%s, attempts=%d]", verificationUuid, attemptCount));
+        return Uni.createFrom().failure(new RuntimeException(errorMsg));
+    }
+
+    private Throwable handleVerificationStatusFailure(Throwable error) {
+        if (error.getMessage().contains("404")) {
+            logger.danayaDebug("Document en cours d'initialisation, nouvelle tentative après délai.");
+            return new DocumentNotReadyException();
+        }
+        return error;
+    }
+
+    private Uni<DanayaVerificationResult> retryPollingStatus(UUID verificationUuid, int attemptCount) {
+        return Uni.createFrom().nullItem()
+                .onItem().delayIt().by(Duration.ofSeconds(pollingIntervalSeconds))
+                .flatMap(ignored -> pollVerificationStatus(verificationUuid, attemptCount + 1));
+    }
+
+    private Uni<DanayaVerificationResult> handleVerificationStatusResult(DanayaVerificationResult result) {
+        String status = result.getStatus();
+        logger.danayaDebug(String.format("Statut vérification [uuid=%s, status=%s]", result.getId(), status));
+        if ("EN_COURS".equals(status)) {
+            return retryPollingStatus(result.getId(), 0);
+        } else if ("A_TRAITER".equals(status)) {
+            logger.auditAction("SYSTEM", "VERIFICATION_SUCCESS", String.format("Vérification réussie [uuid=%s]", result.getId()));
+            return Uni.createFrom().item(result);
+        } else if ("ERREUR".equals(status)) {
+            return Uni.createFrom().failure(new RuntimeException(String.format("Échec de la vérification [uuid=%s]", result.getId())));
+        } else {
+            return Uni.createFrom().failure(new RuntimeException(String.format("Statut de vérification invalide [uuid=%s, status=%s]", result.getId(), status)));
+        }
     }
 
     public Uni<JsonObject> verifyIdDocument(String bucketName, String frontImageName, String backImageName) {
-        logger.danayaDebug(String.format(
-                "Récupération fichiers MinIO [bucket=%s, front=%s, back=%s]",
-                bucketName, frontImageName, backImageName));
+        return retrieveFilesFromMinio(bucketName, frontImageName, backImageName)
+                .flatMap(paths -> uploadDocumentsToDanaya(paths.getItem1(), paths.getItem2()));
+    }
 
-        String frontImagePath = "/tmp/" + frontImageName;
-        String backImagePath = "/tmp/" + backImageName;
+    private Uni<Tuple2<Path, Path>> retrieveFilesFromMinio(String bucketName, String frontImageName, String backImageName) {
+        return Uni.combine().all().unis(
+                minioService.getFile(bucketName, frontImageName, "/tmp/" + frontImageName),
+                minioService.getFile(bucketName, backImageName, "/tmp/" + backImageName)
+        ).asTuple();
+    }
 
-        Uni<Path> frontImageUni = minioService.getFile(bucketName, frontImageName, frontImagePath);
-        Uni<Path> backImageUni = minioService.getFile(bucketName, backImageName, backImagePath);
+    private Uni<JsonObject> uploadDocumentsToDanaya(Path frontImage, Path backImage) {
+        MultipartForm form = createMultipartForm(frontImage, backImage);
+        return Uni.createFrom().emitter(em -> webClient.postAbs(baseUrl + "/v2/clients-files/upload-files")
+                .putHeader("Api-Key", apiKey)
+                .putHeader("Api-Secret", apiSecret)
+                .sendMultipartForm(form, ar -> handleUploadResponse(em, frontImage, backImage, ar)));
+    }
 
-        return Uni.combine().all().unis(frontImageUni, backImageUni)
-                .asTuple()
-                .flatMap(tuple -> {
-                    Path frontImage = tuple.getItem1();
-                    Path backImage = tuple.getItem2();
+    private MultipartForm createMultipartForm(Path frontImage, Path backImage) {
+        return MultipartForm.create()
+                .binaryFileUpload("idDocumentFront", frontImage.getFileName().toString(), frontImage.toString(), "image/jpeg")
+                .binaryFileUpload("idDocumentBack", backImage.getFileName().toString(), backImage.toString(), "image/jpeg")
+                .attribute("documentType", "CNI")
+                .attribute("verificationsToApply", String.join(",", DEFAULT_VERIFICATIONS));
+    }
 
-                    logger.danayaDebug("Préparation upload Danaya");
+    private void handleUploadResponse(UniEmitter<? super JsonObject> emitter, Path frontImage, Path backImage, AsyncResult<HttpResponse<Buffer>> ar) {
+        cleanupFiles(frontImage, backImage);
+        if (ar.succeeded()) {
+            HttpResponse<Buffer> response = ar.result();
+            if (response.statusCode() == 200) {
+                emitter.complete(response.bodyAsJsonObject());
+            } else {
+                emitter.fail(new RuntimeException(String.format("Erreur API Danaya [status=%d, message=%s]", response.statusCode(), response.statusMessage())));
+            }
+        } else {
+            emitter.fail(ar.cause());
+        }
+    }
 
-                    MultipartForm form = MultipartForm.create()
-                            .binaryFileUpload("idDocumentFront", frontImage.getFileName().toString(),
-                                    frontImage.toString(), "image/jpeg")
-                            .binaryFileUpload("idDocumentBack", backImage.getFileName().toString(),
-                                    backImage.toString(), "image/jpeg")
-                            .attribute("documentType", "CNI")
-                            .attribute("verificationsToApply", String.join(",", DEFAULT_VERIFICATIONS));
+    private void cleanupFiles(Path... files) {
+        for (Path file : files) {
+            try {
+                Files.deleteIfExists(file);
+                logger.danayaDebug("Fichier temporaire supprimé [path=" + file + "]");
+            } catch (IOException e) {
+                logger.error("Échec suppression fichier [path=" + file + "]", e);
+            }
+        }
+    }
 
-                    return Uni.createFrom().emitter(em -> {
-                        webClient.postAbs(baseUrl + "/v2/clients-files/upload-files")
-                                .putHeader("Api-Key", apiKey)
-                                .putHeader("Api-Secret", apiSecret)
-                                .putHeader("Content-Type", "multipart/form-data")
-                                .sendMultipartForm(form, ar -> {
-                                    cleanupFiles(frontImage, backImage);
-                                    if (ar.succeeded()) {
-                                        HttpResponse<io.vertx.core.buffer.Buffer> response = ar.result();
-                                        if (response.statusCode() == 200) {
-                                            logger.danayaInfo("Upload documents réussi");
-                                            em.complete(response.bodyAsJsonObject());
-                                        } else {
-                                            String errorMsg = String.format("Erreur API Danaya [status=%d, message=%s]",
-                                                    response.statusCode(), response.statusMessage());
-                                            logger.error(errorMsg);
-                                            em.fail(new RuntimeException(errorMsg));
-                                        }
-                                    } else {
-                                        logger.error("Erreur upload documents", ar.cause());
-                                        em.fail(ar.cause());
-                                    }
-                                });
-                    });
+
+    public Uni<DanayaVerificationResult> checkVerificationStatus(UUID verificationUuid) {
+        if (LaunchMode.current() == LaunchMode.DEVELOPMENT) {
+            logger.danayaDebug("Mode développement détecté - utilisation de données simulées.");
+            // Create Uni in the correct context
+            return Uni.createFrom().emitter(emitter ->
+                    Vertx.currentContext().runOnContext(v -> {
+                        JsonObject mockResponse = loadMockResponse();
+                        DanayaVerificationResult result = parseDanayaResponse(mockResponse);
+                        emitter.complete(result);
+                    })
+            );
+        } else {
+            return Uni.createFrom().emitter(emitter -> {
+                // Ensure we're on the Vert.x event loop thread
+                Vertx.currentContext().runOnContext(v -> {
+                    String url = baseUrl + "/v2/clients-files/client-file-to-analyze-id/" + verificationUuid;
+                    logger.danayaDebug("Appel à l'API Danaya [url=" + url + "]");
+
+                    webClient.getAbs(url)
+                            .putHeader("Api-Key", apiKey)
+                            .putHeader("Api-Secret", apiSecret)
+                            .send(ar -> handleVerificationStatusResponse(emitter, verificationUuid, ar));
                 });
+            });
+        }
     }
 
-    public Uni<DanayaVerificationResult> checkVerificationStatus(String verificationUuid) {
-        logger.danayaDebug(String.format("Vérification statut [uuid=%s]", verificationUuid));
-
-        return Uni.createFrom().emitter(em -> {
-            String url = baseUrl + "/v2/clients-files/client-file-to-analyze-id/" + verificationUuid;
-            webClient.getAbs(url)
-                    .putHeader("Api-Key", apiKey)
-                    .putHeader("Api-Secret", apiSecret)
-                    .putHeader("Content-Type", "application/json")
-                    .send(ar -> {
-                        if (ar.succeeded()) {
-                            HttpResponse<io.vertx.core.buffer.Buffer> response = ar.result();
-                            if (response.statusCode() == 200) {
-                                try {
-                                    JsonObject jsonResponse = response.bodyAsJsonObject();
-                                    DanayaVerificationResult result = parseDanayaResponse(jsonResponse);
-                                    logger.danayaDebug(String.format(
-                                            "Statut récupéré [uuid=%s, status=%s]",
-                                            verificationUuid, result.getStatus()));
-                                    em.complete(result);
-                                } catch (Exception e) {
-                                    logger.error("Erreur parsing réponse", e);
-                                    em.fail(new RuntimeException("Erreur parsing réponse: " + e.getMessage()));
-                                }
-                            } else {
-                                String errorMsg = String.format("Erreur API [status=%d, message=%s]",
-                                        response.statusCode(), response.statusMessage());
-                                logger.error(errorMsg);
-                                em.fail(new RuntimeException(errorMsg));
-                            }
-                        } else {
-                            logger.error("Erreur vérification statut", ar.cause());
-                            em.fail(ar.cause());
-                        }
-                    });
-        });
+    private void handleVerificationStatusResponse(UniEmitter<? super DanayaVerificationResult> emitter, UUID verificationUuid, AsyncResult<HttpResponse<Buffer>> ar) {
+        if (ar.succeeded()) {
+            HttpResponse<Buffer> response = ar.result();
+            if (response.statusCode() == 200) {
+                DanayaVerificationResult result = parseDanayaResponse(response.bodyAsJsonObject());
+                emitter.complete(result);
+            } else {
+                emitter.fail(new RuntimeException(String.format("Erreur API [status=%d, message=%s]", response.statusCode(), response.statusMessage())));
+            }
+        } else {
+            emitter.fail(ar.cause());
+        }
     }
 
-    // Updated parseDanayaResponse method
     private DanayaVerificationResult parseDanayaResponse(JsonObject response) {
         logger.danayaDebug("Parsing Danaya response");
 
         DanayaVerificationResult result = new DanayaVerificationResult();
-        result.setId(response.getString("clientFileToAnalyzeId"));
+        result.setId(UUID.fromString(response.getString("clientFileToAnalyzeId")));
         result.setCreatedAt(response.getString("createdAt"));
         result.setStatus(response.getString("status"));
 
-        // Initialize PersonalInfo
         DanayaVerificationResult.PersonalInfo personalInfo = new DanayaVerificationResult.PersonalInfo();
         result.setPersonalInfo(personalInfo);
 
-        // Initialize VerificationScores
         DanayaVerificationResult.VerificationScores verificationScores = new DanayaVerificationResult.VerificationScores();
         result.setVerificationScores(verificationScores);
 
-        // Parse documents array
         if (response.containsKey("documents") && !response.getJsonArray("documents").isEmpty()) {
             JsonObject document = response.getJsonArray("documents")
                     .stream()
@@ -271,7 +455,6 @@ public class DanayaService {
                 if (ocrData != null) {
                     logger.danayaDebug("OCR data found, extracting information");
 
-                    // Populate Identity data
                     DanayaVerificationResult.Identity identity = new DanayaVerificationResult.Identity();
                     identity.setFirstName(ocrData.getString("first_name"));
                     identity.setLastName(ocrData.getString("last_name"));
@@ -285,7 +468,6 @@ public class DanayaService {
 
                     personalInfo.setIdentity(identity);
 
-                    // Initialize FamilyInfo and Residence
                     DanayaVerificationResult.FamilyInfo familyInfo = new DanayaVerificationResult.FamilyInfo();
                     personalInfo.setFamilyInfo(familyInfo);
 
@@ -293,7 +475,6 @@ public class DanayaService {
                     personalInfo.setResidence(residence);
                 }
 
-                // Parse verification results
                 if (document.containsKey("verificationResults")) {
                     logger.danayaDebug("Processing verification results");
                     document.getJsonArray("verificationResults")
@@ -314,17 +495,14 @@ public class DanayaService {
                                     dbCheckScores.setGender(scoring.getInteger("genderMatchingScore", 0));
                                     verificationScores.setDbCheck(dbCheckScores);
 
-                                    // Parse rawData for additional personal info
                                     String rawDataString = scoring.getString("rawData");
                                     if (rawDataString != null) {
                                         JsonObject rawData = new JsonObject(rawDataString);
 
-                                        // Extract Residence info
                                         DanayaVerificationResult.Residence residence = personalInfo.getResidence();
                                         residence.setAddress(rawData.getString("RESIDENCE_ADR_1"));
                                         residence.setTown(rawData.getString("RESIDENCE_TOWN"));
 
-                                        // Extract Father info
                                         DanayaVerificationResult.ParentInfo father = new DanayaVerificationResult.ParentInfo();
                                         father.setFirstName(rawData.getString("FATHER_FIRST_NAME"));
                                         father.setLastName(rawData.getString("FATHER_LAST_NAME"));
@@ -332,7 +510,6 @@ public class DanayaService {
                                         father.setUin(rawData.getString("FATHER_UIN"));
                                         personalInfo.getFamilyInfo().setFather(father);
 
-                                        // Extract Mother info
                                         DanayaVerificationResult.ParentInfo mother = new DanayaVerificationResult.ParentInfo();
                                         mother.setFirstName(rawData.getString("MOTHER_FIRST_NAME"));
                                         mother.setLastName(rawData.getString("MOTHER_LAST_NAME"));
@@ -340,7 +517,6 @@ public class DanayaService {
                                         mother.setUin(rawData.getString("MOTHER_UIN"));
                                         personalInfo.getFamilyInfo().setMother(mother);
 
-                                        // Extract Spouse Name
                                         personalInfo.getFamilyInfo().setSpouseName(rawData.getString("SPOUSE_NAME"));
                                     }
                                 }
@@ -348,26 +524,33 @@ public class DanayaService {
                 }
             }
         }
-
         return result;
     }
 
-    private void cleanupFiles(Path... files) {
-        for (Path file : files) {
-            try {
-                if (file != null && Files.exists(file)) {
-                    Files.deleteIfExists(file);
-                    logger.danayaDebug(String.format("Fichier temporaire supprimé [path=%s]", file));
-                }
-            } catch (IOException e) {
-                logger.error(String.format("Échec suppression fichier [path=%s]", file), e);
-            }
+    private void updateKYBDocumentFromResult(KYBDocuments kybDoc, DanayaVerificationResult result) {
+        kybDoc.setCniUploadee(true);
+        kybDoc.setCniProgressionVerification(result.isValid() ? 100 : 0);
+
+        if (result.isValid()) {
+            kybDoc.setPhotoIdentiteUploade(true);
+            logger.danayaInfo("Documents KYB validés");
         }
     }
 
-    private static class DocumentNotReadyException extends RuntimeException {
-        public DocumentNotReadyException() {
-            super("Document en cours d'initialisation");
-        }
+    public Uni<KYBStatus> getKYBStatus(UUID leadId) {
+        return kybRepository.findByLeadId(leadId)
+                .flatMap(optionalKybDoc -> {
+                    if (optionalKybDoc.isPresent()) {
+                        KYBDocuments kyb = optionalKybDoc.get();
+                        return isKYBVerified(leadId)
+                                .map(isVerified -> KYBStatus.of(isVerified, kyb.getCniProgressionVerification(), isVerified ? "Vérification KYB complète" : "Vérification KYB en cours"));
+                    }
+                    return Uni.createFrom().item(KYBStatus.of(false, 0, "Aucune vérification KYB trouvée"));
+                });
+    }
+
+    public Uni<Boolean> isKYBVerified(UUID leadId) {
+        return kybRepository.findByLeadId(leadId)
+                .map(optionalKyb -> optionalKyb.map(kyb -> kyb.getCniProgressionVerification() == 100).orElse(false));
     }
 }

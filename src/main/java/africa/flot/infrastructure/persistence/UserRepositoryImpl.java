@@ -11,10 +11,10 @@ import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
-public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase<User, UUID> {
+public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase<User, Long> {
 
     @WithSession
-    public Uni<User> findById(UUID id) {
+    public Uni<User> findById(Long id) {
         return User.findById(id);
     }
 
@@ -35,7 +35,7 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
     }
 
     @Override
-    public Uni<Boolean> deleteById(UUID id) {
+    public Uni<Boolean> deleteById(Long id) {
         return PanacheRepositoryBase.super.deleteById(id);
     }
 
