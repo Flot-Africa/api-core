@@ -50,7 +50,7 @@ jobs:
             -Dquarkus.container-image.registry=${{ env.DOCKER_REGISTRY }} \
             -Dquarkus.container-image.group=flot701 \
             -Dquarkus.container-image.name=flot-api \
-            -Dquarkus.container-image.tags=latest
+            -Dquarkus.container-image.tags=latest,${{ env.VERSION }}
 
       - name: Trigger Coolify Deployment
         run: |
