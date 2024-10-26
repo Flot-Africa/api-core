@@ -1,5 +1,6 @@
 package africa.flot.domain.model;
 
+import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -11,12 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users")
-public class User extends PanacheEntityBase {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(columnDefinition = "uuid", updatable = false, nullable = false)
-    public UUID id;
+public class User extends PanacheEntity {
 
     @Column(nullable = false)
     public String name;

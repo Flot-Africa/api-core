@@ -2,7 +2,7 @@ package africa.flot.infrastructure.interfaces.facade.query.impl;
 
 import africa.flot.application.ports.ScoringService;
 import africa.flot.domain.model.Subscriber;
-import africa.flot.domain.model.enums.SituationMatrimoniale;
+import africa.flot.domain.model.enums.MaritalStatus;
 import africa.flot.domain.model.valueobject.DetailedScore;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -63,7 +63,7 @@ public class ScoringServiceImpl implements ScoringService {
         else score += 20;
 
         // Marital status
-        if (subscriber.getSituationMatrimoniale() == SituationMatrimoniale.MARIE) score += 60;
+        if (subscriber.getMaritalStatus() == MaritalStatus.MARIE) score += 60;
         else score += 30;
 
         // Number of children

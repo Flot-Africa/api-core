@@ -1,7 +1,7 @@
 package africa.flot.application.dto.command;
 
 import africa.flot.application.dto.query.AddressDTO;
-import africa.flot.domain.model.enums.SituationMatrimoniale;
+import africa.flot.domain.model.enums.MaritalStatus;
 
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
@@ -47,7 +47,7 @@ public class CreateSubscriberDTO {
     public Double monthlyCharges;
 
     @NotNull(message = "La situation matrimoniale est obligatoire.")
-    public SituationMatrimoniale maritalStatus;
+    public MaritalStatus maritalStatus;
 
     @Min(value = 0, message = "Le nombre d'enfants ne peut pas être négatif.")
     public Integer numberOfChildren;

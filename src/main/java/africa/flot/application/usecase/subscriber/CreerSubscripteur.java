@@ -63,7 +63,7 @@ public class CreerSubscripteur {
         subscriber.setDateDebutExerciceVTC(commande.getDateDebutExerciceVTC());
         subscriber.setRevenuMensuel(commande.getRevenuMensuel());
         subscriber.setChargesMensuelles(commande.getChargesMensuelles());
-        subscriber.setSituationMatrimoniale(commande.getSituationMatrimoniale());
+        subscriber.setMaritalStatus(commande.getSituationMatrimoniale());
         subscriber.setHabitation(commande.getHabitation());
         subscriber.setRevenuesConjoint(commande.getRevenuesConjoint());
         subscriber.setNombreEnfants(commande.getNombreEnfants());

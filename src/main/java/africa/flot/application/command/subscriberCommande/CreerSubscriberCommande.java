@@ -2,7 +2,7 @@ package africa.flot.application.command.subscriberCommande;
 
 import africa.flot.application.command.AdresseCommande;
 import africa.flot.domain.model.enums.Habitation;
-import africa.flot.domain.model.enums.SituationMatrimoniale;
+import africa.flot.domain.model.enums.MaritalStatus;
 import africa.flot.domain.model.enums.SubscriberStatus;
 import jakarta.validation.constraints.*;
 
@@ -51,7 +51,7 @@ public class CreerSubscriberCommande {
     private BigDecimal chargesMensuelles;
 
     @NotNull(message = "La situation matrimoniale est obligatoire")
-    private SituationMatrimoniale situationMatrimoniale;
+    private MaritalStatus maritalStatus;
 
     @NotNull(message = "Le type d'habitation est obligatoire")
     private Habitation habitation;
@@ -132,12 +132,12 @@ public class CreerSubscriberCommande {
         this.chargesMensuelles = chargesMensuelles;
     }
 
-    public @NotNull(message = "La situation matrimoniale est obligatoire") SituationMatrimoniale getSituationMatrimoniale() {
-        return situationMatrimoniale;
+    public @NotNull(message = "La situation matrimoniale est obligatoire") MaritalStatus getSituationMatrimoniale() {
+        return maritalStatus;
     }
 
-    public void setSituationMatrimoniale(@NotNull(message = "La situation matrimoniale est obligatoire") SituationMatrimoniale situationMatrimoniale) {
-        this.situationMatrimoniale = situationMatrimoniale;
+    public void setSituationMatrimoniale(@NotNull(message = "La situation matrimoniale est obligatoire") MaritalStatus maritalStatus) {
+        this.maritalStatus = maritalStatus;
     }
 
     public @NotNull(message = "Le type d'habitation est obligatoire") Habitation getHabitation() {

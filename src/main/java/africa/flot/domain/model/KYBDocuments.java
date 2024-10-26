@@ -1,96 +1,46 @@
 package africa.flot.domain.model;
 
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.UUID;
 
+@EqualsAndHashCode(callSuper = true)
 @Entity
+@Table(name = "kybdocuments")
+@Data
 public class KYBDocuments extends PanacheEntityBase {
     @Id
-    @GeneratedValue
-    public UUID id;
-    public boolean cniUploadee;
-    public int cniProgressionVerification;
-    public boolean justificatifDomicileUploade;
-    public boolean permisConduiteUploade;
-    public int permisConduiteProgressionVerification;
-    public boolean attestationCACFUploade;
-    public boolean photoIdentiteUploade;
-    public boolean releveBancaireUploade;
+    private UUID id;
 
+    @Column(name = "lead_id")
+    private UUID leadId;
 
-    public UUID getId() {
-        return id;
-    }
+    @Column(name = "cniuploadee")
+    private boolean cniUploadee;
 
-    public void setId(UUID id) {
-        this.id = id;
-    }
+    @Column(name = "cniprogressionverification")
+    private int cniProgressionVerification;
 
-    public boolean isCniUploadee() {
-        return cniUploadee;
-    }
+    @Column(name = "permisconduiteuploade")
+    private boolean permisConduiteUploade;
 
-    public void setCniUploadee(boolean cniUploadee) {
-        this.cniUploadee = cniUploadee;
-    }
+    @Column(name = "permisconduiteprogressionverification")
+    private int permisConduiteProgressionVerification;
 
-    public int getCniProgressionVerification() {
-        return cniProgressionVerification;
-    }
+    @Column(name = "photoidentiteuploade")
+    private boolean photoIdentiteUploade;
 
-    public void setCniProgressionVerification(int cniProgressionVerification) {
-        this.cniProgressionVerification = cniProgressionVerification;
-    }
+    @Column(name = "justificatifdomicileuploade")
+    private boolean justificatifDomicileUploade;
 
-    public boolean isJustificatifDomicileUploade() {
-        return justificatifDomicileUploade;
-    }
+    @Column(name = "attestationcacfuploade")
+    private boolean attestationCACFUploade;
 
-    public void setJustificatifDomicileUploade(boolean justificatifDomicileUploade) {
-        this.justificatifDomicileUploade = justificatifDomicileUploade;
-    }
-
-    public boolean isPermisConduiteUploade() {
-        return permisConduiteUploade;
-    }
-
-    public void setPermisConduiteUploade(boolean permisConduiteUploade) {
-        this.permisConduiteUploade = permisConduiteUploade;
-    }
-
-    public int getPermisConduiteProgressionVerification() {
-        return permisConduiteProgressionVerification;
-    }
-
-    public void setPermisConduiteProgressionVerification(int permisConduiteProgressionVerification) {
-        this.permisConduiteProgressionVerification = permisConduiteProgressionVerification;
-    }
-
-    public boolean isAttestationCACFUploade() {
-        return attestationCACFUploade;
-    }
-
-    public void setAttestationCACFUploade(boolean attestationCACFUploade) {
-        this.attestationCACFUploade = attestationCACFUploade;
-    }
-
-    public boolean isPhotoIdentiteUploade() {
-        return photoIdentiteUploade;
-    }
-
-    public void setPhotoIdentiteUploade(boolean photoIdentiteUploade) {
-        this.photoIdentiteUploade = photoIdentiteUploade;
-    }
-
-    public boolean isReleveBancaireUploade() {
-        return releveBancaireUploade;
-    }
-
-    public void setReleveBancaireUploade(boolean releveBancaireUploade) {
-        this.releveBancaireUploade = releveBancaireUploade;
-    }
+    @Column(name = "relevebancaireuploade")
+    private boolean releveBancaireUploade;
 }
