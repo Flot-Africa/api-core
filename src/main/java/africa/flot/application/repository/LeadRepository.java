@@ -2,6 +2,7 @@ package africa.flot.application.repository;
 
 import africa.flot.domain.model.Lead;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -16,7 +17,7 @@ public class LeadRepository implements PanacheRepositoryBase<Lead, UUID> {
         return find("id", leadId).firstResult();
     }
 
-    // Méthode pour vérifier si un lead existe
+    @WithSession
     public Uni<Boolean> existsById(UUID leadId) {
         return find("id", leadId).firstResult()
                 .map(Objects::nonNull);
