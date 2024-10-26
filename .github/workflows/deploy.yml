@@ -18,13 +18,13 @@ jobs:
           cache: 'maven'
 
       - name: Create JWT Directory
-        run: mkdir -p jwt
+        run: mkdir -p src/main/resources/jwt
 
       - name: Setup JWT Keys
         run: |
-          echo "${{ secrets.JWT_PRIVATE_KEY }}" > jwt/privateKey.pem
-          echo "${{ secrets.JWT_PUBLIC_KEY }}" > jwt/publicKey.pem
-          chmod 600 jwt/privateKey.pem jwt/publicKey.pem
+          echo "${{ secrets.JWT_PRIVATE_KEY }}" > src/main/resources/jwt/privateKey.pem
+          echo "${{ secrets.JWT_PUBLIC_KEY }}" > src/main/resources/jwt/publicKey.pem
+          chmod 600 src/main/resources/jwt/privateKey.pem src/main/resources/jwt/publicKey.pem
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -45,7 +45,7 @@ jobs:
             -Dquarkus.container-image.registry=${{ env.DOCKER_REGISTRY }} \
             -Dquarkus.container-image.group=flot701 \
             -Dquarkus.container-image.name=flot-api \
-            -Dquarkus.container-image.tags=latest,1.0.0
+            -Dquarkus.container-image.tags=latest
 
       - name: Deploy to Coolify
         run: |
