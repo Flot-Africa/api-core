@@ -1,9 +1,9 @@
 package africa.flot.infrastructure.security;
 
 import africa.flot.domain.model.Account;
-import africa.flot.domain.model.Subscriber;
+import africa.flot.domain.model.Lead;
 import africa.flot.infrastructure.repository.AccountRepository;
-import africa.flot.infrastructure.persistence.UserRepositoryImpl;
+import africa.flot.infrastructure.repository.impl.UserRepositoryImpl;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.smallrye.jwt.build.Jwt;
 import io.smallrye.mutiny.Uni;
@@ -90,7 +90,7 @@ public class AuthService {
                                 .subject(account.id.toString())
                                 .groups(Set.of("SUBSCRIBER"))
                                 .claim("username", account.username)
-                                .claim("subscriberId", account.subscriber.id.toString())
+                                .claim("subscriberId", account.lead.getId().toString())
                                 .expiresIn(jwtDuration)
                                 .sign();
                         LOG.info("JWT généré pour l'abonné " + username);
@@ -154,8 +154,8 @@ public class AuthService {
         return hashPassword(password)
                 .onItem().transformToUni(hashedPassword -> {
                     Account account = new Account();
-                    account.subscriber = new Subscriber();
-                    account.subscriber.id = subscriberId;
+                    account.lead = new Lead();
+                    account.lead.setId(subscriberId);
                     account.username = username;
                     account.passwordHash = hashedPassword;
                     account.isActive = true;

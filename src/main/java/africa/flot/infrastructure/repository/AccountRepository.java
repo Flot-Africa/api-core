@@ -9,8 +9,6 @@ public interface AccountRepository  {
 
     Uni<Account> findById(UUID id);
 
-    Uni<Account> findBySubscriberId(UUID subscriberId);
-
     Uni<Account> findByUsername(String username);
 
     Uni<Boolean> existsByUsername(String username);
