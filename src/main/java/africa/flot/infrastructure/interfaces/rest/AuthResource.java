@@ -11,6 +11,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -111,5 +112,42 @@ public class AuthResource {
                         return ApiResponseBuilder.failure("Utilisateur non trouvé", Response.Status.NOT_FOUND);
                     }
                 });
+    }
+
+    @POST
+    @Path("/logout")
+    @RolesAllowed({"SUBSCRIBER", "ADMIN"})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> logout(@Context SecurityContext securityContext, @Context ContainerRequestContext requestContext) {
+        if (securityContext.getUserPrincipal() == null) {
+            LOG.warn("logout: Aucun utilisateur authentifié trouvé");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Utilisateur non authentifié", Response.Status.UNAUTHORIZED));
+        }
+
+        String token = extractToken(requestContext);
+        if (token == null) {
+            LOG.warn("logout: Aucun token trouvé");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Token non trouvé", Response.Status.BAD_REQUEST));
+        }
+
+        return authService.invalidateToken(token)
+                .onItem().transform(isInvalidated -> {
+                    if (isInvalidated) {
+                        LOG.info("logout: Token invalidé avec succès");
+                        return ApiResponseBuilder.success("Déconnexion réussie");
+                    } else {
+                        LOG.warn("logout: Échec de l'invalidation du token");
+                        return ApiResponseBuilder.failure("Échec de la déconnexion", Response.Status.INTERNAL_SERVER_ERROR);
+                    }
+                });
+    }
+
+    // Méthode pour extraire le token depuis ContainerRequestContext
+    private String extractToken(ContainerRequestContext requestContext) {
+        String authHeader = requestContext.getHeaderString("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
     }
 }

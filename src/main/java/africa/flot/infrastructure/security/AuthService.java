@@ -3,6 +3,7 @@ package africa.flot.infrastructure.security;
 import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Lead;
 import africa.flot.infrastructure.repository.AccountRepository;
+import africa.flot.infrastructure.repository.TokenBlacklistRepository;
 import africa.flot.infrastructure.repository.impl.UserRepositoryImpl;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.smallrye.jwt.build.Jwt;
@@ -29,6 +30,9 @@ public class AuthService {
 
     @Inject
     UserRepositoryImpl userRepository;
+
+    @Inject
+    TokenBlacklistRepository tokenBlacklistRepository;
 
     @ConfigProperty(name = "mp.jwt.verify.issuer", defaultValue = "flot")
     String issuer;
@@ -206,6 +210,13 @@ public class AuthService {
                         return null;
                     }
                 });
+    }
+
+
+    public Uni<Boolean> invalidateToken(String token) {
+        // Définir la durée de validité restante du jeton en secondes (par exemple, 3600 secondes pour 1 heure)
+        long expirationTimeInSeconds = jwtDuration.getSeconds();
+        return tokenBlacklistRepository.add(token, expirationTimeInSeconds);
     }
 
 
