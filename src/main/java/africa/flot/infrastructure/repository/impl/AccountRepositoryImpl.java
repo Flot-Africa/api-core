@@ -17,6 +17,7 @@ public class AccountRepositoryImpl implements AccountRepository, PanacheReposito
         return findById(id);
     }
 
+    @WithSession
     @Override
     public Uni<Account> findByUsername(String username) {
         return find("username", username).firstResult();

@@ -15,7 +15,7 @@ public class Account extends PanacheEntityBase {
     public UUID id;
 
     @OneToOne
-    @JoinColumn(name = "subscriber_id", unique = true)
+    @JoinColumn(name = "lead_id", unique = true)
     public Lead lead;
 
     @Column(nullable = false, unique = true)

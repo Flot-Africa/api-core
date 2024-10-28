@@ -9,6 +9,7 @@ import io.smallrye.jwt.build.Jwt;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -87,7 +88,7 @@ public class AuthService {
                 .onItem().transform(account -> {
                     if (account != null && account.isActive) {
                         String token = Jwt.issuer(issuer)
-                                .subject(account.id.toString())
+                                .subject(account.username)
                                 .groups(Set.of("SUBSCRIBER"))
                                 .claim("username", account.username)
                                 .claim("subscriberId", account.lead.getId().toString())
@@ -115,7 +116,7 @@ public class AuthService {
                 .onItem().transform(user -> {
                     if (user != null) {
                         String token = Jwt.issuer(issuer)
-                                .subject(user.id.toString())
+                                .subject(user.email)
                                 .groups(Set.of("ADMIN"))
                                 .claim("email", user.email)
                                 .expiresIn(jwtDuration)
@@ -163,5 +164,54 @@ public class AuthService {
                 })
                 .onItem().invoke(() -> LOG.info("Nouveau compte créé pour l'abonné : " + username))
                 .replaceWithVoid();
+    }
+
+    public Uni<Object> getAuthenticatedUser(String identifier, String role) {
+        if (role.equals("SUBSCRIBER")) {
+            return findSubscriberByUsername(identifier)
+                    .onItem().transform(subscriber -> {
+                        if (subscriber != null) {
+                            LOG.info("getAuthenticatedUser: Abonné trouvé pour le nom d'utilisateur : " + identifier);
+                            return subscriber;
+                        } else {
+                            LOG.warn("getAuthenticatedUser: Aucun abonné trouvé pour le nom d'utilisateur : " + identifier);
+                            return null;
+                        }
+                    });
+        } else if (role.equals("ADMIN")) {
+            return findAdminByEmail(identifier)
+                    .onItem().transform(admin -> {
+                        if (admin != null) {
+                            LOG.info("getAuthenticatedUser: Admin trouvé pour l'email : " + identifier);
+                            return admin;
+                        } else {
+                            LOG.warn("getAuthenticatedUser: Aucun admin trouvé pour l'email : " + identifier);
+                            return null;
+                        }
+                    });
+        } else {
+            LOG.warn("getAuthenticatedUser: Rôle inconnu");
+            return Uni.createFrom().failure(new IllegalArgumentException("Rôle inconnu"));
+        }
+    }
+
+    public Uni<Lead> findSubscriberByUsername(String username) {
+        return accountRepository.findByUsername(username)
+                .onItem().transform(account -> {
+                    if (account != null && account.lead != null) {
+                        LOG.info("findSubscriberByUsername: Lead trouvé pour le nom d'utilisateur : " + username);
+                        return account.lead;
+                    } else {
+                        LOG.warn("findSubscriberByUsername: Aucun Lead trouvé pour le nom d'utilisateur : " + username);
+                        return null;
+                    }
+                });
+    }
+
+
+    public Uni<Object> findAdminByEmail(String email) {
+        // Implémenter la logique pour trouver un admin par email
+        return userRepository.findByEmail(email)
+                .onItem().transform(user -> user);
     }
 }

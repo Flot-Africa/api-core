@@ -7,11 +7,14 @@ import africa.flot.infrastructure.util.ApiResponseBuilder;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import org.jboss.logging.Logger;
 
 @Path("/auth")
@@ -74,6 +77,38 @@ public class AuthResource {
                     } else {
                         LOG.warn("loginAdmin: Authentication failed for email: " + command.email());
                         return Uni.createFrom().item(ApiResponseBuilder.failure("Invalid credentials", Response.Status.UNAUTHORIZED));
+                    }
+                });
+    }
+
+    @GET
+    @Path("/me")
+    @RolesAllowed({"SUBSCRIBER", "ADMIN"})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> me(@Context SecurityContext securityContext) {
+        if (securityContext.getUserPrincipal() == null) {
+            LOG.warn("me: Aucun utilisateur authentifié trouvé");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Utilisateur non authentifié", Response.Status.UNAUTHORIZED));
+        }
+
+        String usernameOrEmail = securityContext.getUserPrincipal().getName();
+        LOG.info("me: Récupération des informations pour l'utilisateur : " + usernameOrEmail);
+
+        String role = securityContext.isUserInRole("SUBSCRIBER") ? "SUBSCRIBER" :
+                securityContext.isUserInRole("ADMIN") ? "ADMIN" : null;
+
+        if (role == null) {
+            LOG.warn("me: Rôle de l'utilisateur inconnu");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Rôle inconnu", Response.Status.FORBIDDEN));
+        }
+
+        return authService.getAuthenticatedUser(usernameOrEmail, role)
+                .onItem().transform(user -> {
+                    if (user != null) {
+                        return ApiResponseBuilder.success(user);
+                    } else {
+                        LOG.warn("me: Utilisateur non trouvé pour le nom d'utilisateur ou email : " + usernameOrEmail);
+                        return ApiResponseBuilder.failure("Utilisateur non trouvé", Response.Status.NOT_FOUND);
                     }
                 });
     }
