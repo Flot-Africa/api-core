@@ -1,6 +1,7 @@
 package africa.flot.infrastructure.interfaces.rest;
 
-import africa.flot.application.repository.LeadRepository;
+import africa.flot.application.dto.command.DocumentRequest;
+import africa.flot.infrastructure.repository.LeadRepository;
 import africa.flot.infrastructure.dayana.DanayaService;
 import africa.flot.infrastructure.util.ApiResponseBuilder;
 import io.smallrye.mutiny.Uni;

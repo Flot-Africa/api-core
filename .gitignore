@@ -42,6 +42,7 @@ nb-configuration.xml
 .env
 .env.*
 !.env.example
+jwt/
 
 # Plugin directory
 /.quarkus/cli/plugins/

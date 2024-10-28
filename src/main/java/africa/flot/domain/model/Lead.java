@@ -3,6 +3,7 @@ package africa.flot.domain.model;
 import africa.flot.domain.model.enums.Gender;
 import africa.flot.domain.model.enums.HousingStatus;
 import africa.flot.domain.model.enums.MaritalStatus;
+import africa.flot.domain.model.valueobject.Address;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -44,8 +45,8 @@ public class Lead extends PanacheEntityBase {
     @Column(name = "birth_place")
     private String birthPlace;
 
-    @Column(name = "address")
-    private String address;
+    @Embedded
+    private Address address;
 
     @Column(name = "permit_acquisition_date")
     private LocalDate permitAcquisitionDate;
@@ -72,6 +73,28 @@ public class Lead extends PanacheEntityBase {
 
     @Column(name = "children_count")
     private Integer childrenCount;
+
+    // New fields added below
+    @Column(name = "license_points")
+    private Integer licensePoints; // Remaining points on the license (out of 12)
+
+    @Column(name = "current_infractions_count")
+    private Integer currentInfractionsCount; // Number of current infractions
+
+    @Column(name = "total_fine_amount", precision = 15, scale = 2)
+    private BigDecimal totalFineAmount; // Total fine amount in francs for current infractions
+
+    @Column(name = "accident_count")
+    private Integer accidentCount; // Number of recent accidents
+
+    @Column(name = "has_electric_vehicle_experience")
+    private Boolean hasElectricVehicleExperience; // Nouvel attribut
+
+    @Column(name = "average_vtc_rating")
+    private Double averageVtcRating; // Note moyenne sur les plateformes VTC
+
+    @Column(name = "historical_infractions_count")
+    private Integer historicalInfractionsCount; // Nombre total d'infractions historiques
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

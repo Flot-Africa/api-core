@@ -4,9 +4,11 @@ import jakarta.persistence.Embeddable;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
+import lombok.Setter;
 
-@Embeddable
+@Setter
 @Getter
+@Embeddable
 public class Address {
 
     @NotBlank(message = "La ville de naissance est obligatoire")
@@ -23,27 +25,4 @@ public class Address {
 
     // Getters et Setters
 
-    public String getVilleNaissance() {
-        return villeNaissance;
-    }
-
-    public void setVilleNaissance(String villeNaissance) {
-        this.villeNaissance = villeNaissance;
-    }
-
-    public String getZoneResidence() {
-        return zoneResidence;
-    }
-
-    public void setZoneResidence(String zoneResidence) {
-        this.zoneResidence = zoneResidence;
-    }
-
-    public String getPaysNaissance() {
-        return paysNaissance;
-    }
-
-    public void setPaysNaissance(String paysNaissance) {
-        this.paysNaissance = paysNaissance;
-    }
 }
