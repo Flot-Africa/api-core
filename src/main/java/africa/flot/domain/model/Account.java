@@ -2,12 +2,16 @@ package africa.flot.domain.model;
 
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.time.LocalDate;
 import java.util.UUID;
 
+@EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "account")
+@Data
 public class Account extends PanacheEntityBase {
 
     @Id
@@ -17,6 +21,10 @@ public class Account extends PanacheEntityBase {
     @OneToOne
     @JoinColumn(name = "lead_id", unique = true)
     public Lead lead;
+
+    @ManyToOne
+    @JoinColumn(name = "package_id")
+    public Package subscribedPackage;
 
     @Column(nullable = false, unique = true)
     public String username;

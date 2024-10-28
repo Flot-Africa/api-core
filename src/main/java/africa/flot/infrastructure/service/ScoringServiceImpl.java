@@ -1,4 +1,4 @@
-package africa.flot.infrastructure.repository.impl;
+package africa.flot.infrastructure.service;
 
 import africa.flot.application.ports.CanScoringRepository;
 import africa.flot.application.ports.QualifiedProspectsRepository;
