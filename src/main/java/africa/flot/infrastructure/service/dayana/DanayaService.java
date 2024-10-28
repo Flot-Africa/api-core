@@ -1,4 +1,4 @@
-package africa.flot.infrastructure.dayana;
+package africa.flot.infrastructure.service.dayana;
 
 import africa.flot.application.dto.query.DanayaVerificationResult;
 import africa.flot.application.dto.query.KYBStatus;

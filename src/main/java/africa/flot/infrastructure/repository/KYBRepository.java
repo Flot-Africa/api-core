@@ -2,7 +2,7 @@ package africa.flot.infrastructure.repository;
 
 
 import africa.flot.domain.model.KYBDocuments;
-import africa.flot.infrastructure.repository.impl.ScoringServiceImpl;
+import africa.flot.infrastructure.service.ScoringServiceImpl;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
