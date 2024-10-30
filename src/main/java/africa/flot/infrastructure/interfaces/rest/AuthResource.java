@@ -2,6 +2,7 @@ package africa.flot.infrastructure.interfaces.rest;
 
 import africa.flot.application.auth.AdminAuthCommand;
 import africa.flot.application.auth.SubscriberAuthCommand;
+import africa.flot.application.dto.command.ChangePasswordCommand;
 import africa.flot.infrastructure.security.AuthService;
 import africa.flot.infrastructure.util.ApiResponseBuilder;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
@@ -139,6 +140,31 @@ public class AuthResource {
                         LOG.warn("logout: Échec de l'invalidation du token");
                         return ApiResponseBuilder.failure("Échec de la déconnexion", Response.Status.INTERNAL_SERVER_ERROR);
                     }
+                });
+    }
+
+    @POST
+    @Path("/change-password")
+    @RolesAllowed({"SUBSCRIBER", "ADMIN"})
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Uni<Response> changePassword(@Context SecurityContext securityContext, ChangePasswordCommand command) {
+        if (command == null || command.getOldPassword() == null || command.getNewPassword() == null) {
+            LOG.warn("changePassword: Données invalides fournies pour la modification du mot de passe");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Données invalides", Response.Status.BAD_REQUEST));
+        }
+
+        String username = securityContext.getUserPrincipal().getName();
+        LOG.info("changePassword: Tentative de modification du mot de passe pour l'utilisateur : " + username);
+
+        return authService.changePassword(username, command.getOldPassword(), command.getNewPassword())
+                .onItem().transform(response -> {
+                    if (response.getStatus() == Response.Status.OK.getStatusCode()) {
+                        LOG.info("changePassword: Mot de passe modifié avec succès pour " + username);
+                    } else {
+                        LOG.warn("changePassword: Échec de la modification du mot de passe pour " + username);
+                    }
+                    return response;
                 });
     }
 

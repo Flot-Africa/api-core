@@ -1,11 +1,14 @@
 package africa.flot.infrastructure.security;
 
+import africa.flot.application.ports.OldPasswordRepository;
 import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Lead;
+import africa.flot.domain.model.OldPassword;
 import africa.flot.infrastructure.repository.AccountRepository;
 import africa.flot.infrastructure.repository.TokenBlacklistRepository;
 import africa.flot.infrastructure.repository.impl.UserRepositoryImpl;
 import io.quarkus.elytron.security.common.BcryptUtil;
+import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.jwt.build.Jwt;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -33,6 +36,9 @@ public class AuthService {
 
     @Inject
     TokenBlacklistRepository tokenBlacklistRepository;
+
+    @Inject
+    OldPasswordRepository oldPasswordRepository;
 
     @ConfigProperty(name = "mp.jwt.verify.issuer", defaultValue = "flot")
     String issuer;
@@ -225,4 +231,48 @@ public class AuthService {
         return userRepository.findByEmail(email)
                 .onItem().transform(user -> user);
     }
+
+
+
+    @WithTransaction
+    public Uni<Response> changePassword(String username, String oldPassword, String newPassword) {
+        if (username == null || oldPassword == null || newPassword == null || oldPassword.equals(newPassword)) {
+            LOG.warn("changePassword: Données invalides fournies");
+            return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).entity("Données invalides ou mot de passe identique à l'ancien").build());
+        }
+
+        return accountRepository.findByUsername(username)
+                .onItem().transformToUni(account -> {
+                    if (account != null && BcryptUtil.matches(oldPassword, account.passwordHash)) {
+                        String newHash = BcryptUtil.bcryptHash(newPassword);
+
+                        return oldPasswordRepository.isPasswordUsed(account.id, newHash)
+                                .onItem().transformToUni(isUsed -> {
+                                    if (isUsed) {
+                                        LOG.warn("changePassword: Nouveau mot de passe déjà utilisé pour " + username);
+                                        return Uni.createFrom().item(Response.status(Response.Status.CONFLICT).entity("Nouveau mot de passe déjà utilisé").build());
+                                    }
+                                    account.passwordHash = newHash;
+                                    return accountRepository.updatePassword(account.getLead().getId(), account.passwordHash)
+                                            .onItem().transformToUni(updated -> {
+                                                LOG.info("Mot de passe changé avec succès pour : " + username);
+                                                OldPassword oldPasswordEntity = new OldPassword();
+                                                oldPasswordEntity.account = account;
+                                                oldPasswordEntity.passwordHash = newHash;
+                                                return oldPasswordRepository.saveOldPassword(oldPasswordEntity)
+                                                        .replaceWith(Response.ok("Mot de passe mis à jour avec succès").build());
+                                            });
+                                });
+                    } else {
+                        LOG.warn("changePassword: Ancien mot de passe incorrect pour " + username);
+                        return Uni.createFrom().item(Response.status(Response.Status.UNAUTHORIZED).entity("Ancien mot de passe incorrect").build());
+                    }
+                })
+                .onFailure().recoverWithItem(e -> {
+                    LOG.error("Erreur lors de la modification du mot de passe", e);
+                    return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Erreur interne").build();
+                });
+    }
+
+
 }

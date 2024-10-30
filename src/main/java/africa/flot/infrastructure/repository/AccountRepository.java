@@ -9,6 +9,8 @@ public interface AccountRepository  {
 
     Uni<Account> findById(UUID id);
 
+     Uni<Void> updatePassword(UUID accountId, String newPasswordHash);
+
     Uni<Account> findByUsername(String username);
 
     Uni<Boolean> existsByUsername(String username);
