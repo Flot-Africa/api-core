@@ -22,8 +22,11 @@ public class MinioService {
     @Inject
     MinioClient minioClient;
 
+    @Inject
+    io.vertx.mutiny.core.Vertx vertx;
+
     public Uni<Path> getFile(String bucketName, String objectName, String outputPath) {
-        return Uni.createFrom().item(Unchecked.supplier(() -> {
+        return vertx.executeBlocking(Uni.createFrom().item(() -> {
             try (InputStream fileStream = minioClient.getObject(
                     GetObjectArgs.builder()
                             .bucket(bucketName)
@@ -32,12 +35,12 @@ public class MinioService {
             )) {
                 Path filePath = Path.of(outputPath);
                 Files.copy(fileStream, filePath, StandardCopyOption.REPLACE_EXISTING);
-                LOG.info("Fichier recuperé depuis Minio" + objectName + " [path=" + filePath + "]");
+                LOG.infof("Fichier récupéré depuis Minio : %s [path=%s]", objectName, filePath);
                 return filePath;
             } catch (Exception e) {
-                LOG.error("Erreur lors de la récupération du fichier depuis Minio", e);
-                throw new RuntimeException("Erreur lors de la récupération du fichier depuis Minio", e);
+                LOG.errorf("Erreur lors de la récupération du fichier %s depuis Minio : %s", objectName, e.getMessage());
+                throw new RuntimeException("Erreur lors de la récupération du fichier depuis Minio : " + e.getMessage(), e);
             }
-        })).runSubscriptionOn(Infrastructure.getDefaultExecutor());
+        }));
     }
 }

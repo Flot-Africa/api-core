@@ -46,4 +46,12 @@ public class AccountRepositoryImpl implements AccountRepository, PanacheReposito
         return update("isActive = false where subscriber.id = ?1", subscriberId)
                 .replaceWithVoid();
     }
+
+    @WithSession
+    @Override
+    public Uni<Void> updatePassword(UUID accountId, String newPasswordHash) {
+        return update("passwordHash = ?1 where id = ?2", newPasswordHash, accountId)
+                .replaceWithVoid();
+    }
+
 }
