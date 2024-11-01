@@ -10,43 +10,49 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up JDK
+      - name: Configurer JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'maven'
 
-      - name: Create JWT Directory
+      - name: Créer le répertoire JWT
         run: mkdir -p src/main/resources/jwt
 
-      - name: Setup JWT Keys
+      - name: Configurer les clés JWT
         run: |
           echo "${{ secrets.JWT_PRIVATE_KEY }}" > src/main/resources/jwt/privateKey.pem
           echo "${{ secrets.JWT_PUBLIC_KEY }}" > src/main/resources/jwt/publicKey.pem
           chmod 600 src/main/resources/jwt/privateKey.pem src/main/resources/jwt/publicKey.pem
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and Push Native Image
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Construire l'image native et l'image Docker
         run: |
           mvn clean package -Pnative -DskipTests \
             -Dquarkus.native.container-build=true \
             -Dquarkus.native.additional-build-args="-march=x86-64" \
             -Dquarkus.container-image.build=true \
-            -Dquarkus.container-image.push=true \
+            -Dquarkus.container-image.push=false \
             -Dquarkus.container-image.registry=${{ env.DOCKER_REGISTRY }} \
             -Dquarkus.container-image.group=flot701 \
             -Dquarkus.container-image.name=flot-api \
             -Dquarkus.container-image.tags=latest
 
-      - name: Deploy to Coolify
+      - name: Attester la provenance de la build
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: target/*-runner
+
+      - name: Se connecter à Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Pousser l'image Docker
+        run: |
+          docker push ${{ env.DOCKER_REGISTRY }}/flot701/flot-api:latest
+
+      - name: Déployer sur Coolify
         run: |
           curl --request GET '${{ secrets.COOLIFY_WEBHOOK }}' --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}'
