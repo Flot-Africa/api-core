@@ -1,6 +1,7 @@
 package africa.flot.domain.model.valueobject;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,6 +11,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@RegisterForReflection
 public class DetailedScore {
     @JsonProperty("personalDataScore")
     private int personalDataScore;
