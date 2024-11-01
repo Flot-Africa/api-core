@@ -7,6 +7,10 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write  # Optionnel, requis si vous poussez les attestations vers un registre
     steps:
       - uses: actions/checkout@v3
 
