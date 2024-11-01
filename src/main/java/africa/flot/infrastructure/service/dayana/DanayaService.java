@@ -20,6 +20,9 @@ import java.nio.file.Path;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Service class for handling Danaya verification processes.
+ */
 @ApplicationScoped
 public class DanayaService {
 
@@ -41,6 +44,15 @@ public class DanayaService {
     @Inject
     VerificationPoller verificationPoller;
 
+    /**
+     * Verifies ID documents with polling.
+     *
+     * @param bucketName the name of the bucket where the images are stored
+     * @param frontImageName the name of the front image file
+     * @param backImageName the name of the back image file
+     * @param leadId the ID of the lead
+     * @return a Uni containing the verification result
+     */
     @WithSession
     public Uni<DanayaVerificationResult> verifyIdDocumentWithPolling(String bucketName, String frontImageName, String backImageName, UUID leadId) {
         return danayaVerificationRepository.findByLeadId(leadId)
@@ -75,28 +87,31 @@ public class DanayaService {
                 .onFailure().invoke(error -> logger.error("Erreur lors de la vérification des documents", error));
     }
 
+    /**
+     * Updates the KYB status based on the verification result.
+     *
+     * @param result the verification result
+     * @param leadId the ID of the lead
+     * @return a Uni containing the updated verification result
+     */
     @WithTransaction
     protected Uni<DanayaVerificationResult> updateKYBStatus(DanayaVerificationResult result, UUID leadId) {
         return kybRepository.findByLeadId(leadId)
                 .flatMap(optionalKybDoc -> {
-                    if (optionalKybDoc.isPresent()) {
-                        // Mise à jour du KYBDocuments existant
-                        KYBDocuments kybDoc = optionalKybDoc.get();
-                        updateKYBDocumentFromResult(kybDoc, result);
-                        return kybRepository.persistAndFlush(kybDoc)
-                                .flatMap(savedDoc -> saveVerificationResult(result, leadId))
-                                .map(savedResult -> logKYBUpdateSuccess(leadId, kybDoc, result));
-                    } else {
-                        // Création d'un nouveau KYBDocuments
-                        KYBDocuments newDoc = createNewKYBDocument(leadId);
-                        updateKYBDocumentFromResult(newDoc, result);
-                        return kybRepository.persistAndFlush(newDoc)
-                                .flatMap(savedDoc -> saveVerificationResult(result, leadId))
-                                .map(savedResult -> logKYBUpdateSuccess(leadId, newDoc, result));
-                    }
+                    KYBDocuments kybDoc = optionalKybDoc.orElseGet(() -> createNewKYBDocument(leadId));
+                    updateKYBDocumentFromResult(kybDoc, result);
+                    return kybRepository.persistAndFlush(kybDoc)
+                            .flatMap(savedDoc -> saveVerificationResult(result, leadId))
+                            .map(savedResult -> logKYBUpdateSuccess(leadId, kybDoc, result));
                 });
     }
 
+    /**
+     * Creates a new KYB document for the given lead ID.
+     *
+     * @param leadId the ID of the lead
+     * @return a new KYB document
+     */
     private KYBDocuments createNewKYBDocument(UUID leadId) {
         KYBDocuments newDoc = new KYBDocuments();
         newDoc.setId(UUID.randomUUID());
@@ -104,16 +119,37 @@ public class DanayaService {
         return newDoc;
     }
 
+    /**
+     * Logs the success of the KYB update.
+     *
+     * @param leadId the ID of the lead
+     * @param kybDoc the KYB document
+     * @param result the verification result
+     * @return the verification result
+     */
     private DanayaVerificationResult logKYBUpdateSuccess(UUID leadId, KYBDocuments kybDoc, DanayaVerificationResult result) {
         logger.danayaInfo(String.format("KYB mis à jour [leadId=%s, progression=%d]", leadId, kybDoc.getCniProgressionVerification()));
         return result;
     }
 
+    /**
+     * Logs the failure of the verification process.
+     *
+     * @param bucketName the name of the bucket
+     * @param error the error that occurred
+     */
     private void logVerificationFailure(String bucketName, Throwable error) {
         logger.error("Échec de la vérification des documents", error);
         logger.auditAction("SYSTEM", "DOCUMENT_UPLOAD_FAILED", String.format("Échec upload documents [bucket=%s, error=%s]", bucketName, error.getMessage()));
     }
 
+    /**
+     * Saves the verification result.
+     *
+     * @param result the verification result
+     * @param leadId the ID of the lead
+     * @return a Uni representing the completion of the save operation
+     */
     @WithTransaction
     public Uni<Void> saveVerificationResult(DanayaVerificationResult result, UUID leadId) {
         logger.danayaDebug("Enregistrement du résultat de vérification pour leadId=" + leadId);
@@ -121,9 +157,7 @@ public class DanayaService {
         return danayaVerificationRepository.findByLeadId(leadId)
                 .flatMap(optionalExistingResult -> {
                     DanayaVerificationResults verificationResult = getDanayaVerificationResults(leadId, optionalExistingResult);
-
                     verificationResult.updateFromVerificationResult(result);
-
                     return verificationResult.persistAndFlush()
                             .onItem().invoke(() -> logger.danayaInfo("Résultat de vérification enregistré pour leadId=" + leadId))
                             .onFailure().invoke(e -> logger.error("Échec de l'enregistrement du résultat de vérification pour leadId=" + leadId, e))
@@ -131,6 +165,13 @@ public class DanayaService {
                 });
     }
 
+    /**
+     * Retrieves or creates a new Danaya verification result.
+     *
+     * @param leadId the ID of the lead
+     * @param optionalExistingResult an optional existing verification result
+     * @return the verification result
+     */
     private static DanayaVerificationResults getDanayaVerificationResults(UUID leadId, Optional<DanayaVerificationResults> optionalExistingResult) {
         return optionalExistingResult.orElseGet(() -> {
             DanayaVerificationResults verificationResult = new DanayaVerificationResults();
@@ -139,11 +180,27 @@ public class DanayaService {
         });
     }
 
+    /**
+     * Verifies ID documents by uploading them to the Danaya API.
+     *
+     * @param bucketName the name of the bucket where the images are stored
+     * @param frontImageName the name of the front image file
+     * @param backImageName the name of the back image file
+     * @return a Uni containing the response from the Danaya API
+     */
     public Uni<JsonObject> verifyIdDocument(String bucketName, String frontImageName, String backImageName) {
         return retrieveFilesFromMinio(bucketName, frontImageName, backImageName)
                 .flatMap(paths -> danayaApiClient.uploadIdDocuments(paths.getItem1(), paths.getItem2()));
     }
 
+    /**
+     * Retrieves files from Minio storage.
+     *
+     * @param bucketName the name of the bucket
+     * @param frontImageName the name of the front image file
+     * @param backImageName the name of the back image file
+     * @return a Uni containing a tuple of paths to the retrieved files
+     */
     private Uni<Tuple2<Path, Path>> retrieveFilesFromMinio(String bucketName, String frontImageName, String backImageName) {
         return Uni.combine().all().unis(
                 minioService.getFile(bucketName, frontImageName, "/tmp/" + frontImageName),
@@ -151,6 +208,12 @@ public class DanayaService {
         ).asTuple();
     }
 
+    /**
+     * Updates the KYB document based on the verification result.
+     *
+     * @param kybDoc the KYB document
+     * @param result the verification result
+     */
     private void updateKYBDocumentFromResult(KYBDocuments kybDoc, DanayaVerificationResult result) {
         if (result.isValid()) {
             kybDoc.setCniUploadee(true);
@@ -159,6 +222,12 @@ public class DanayaService {
         }
     }
 
+    /**
+     * Retrieves the KYB status for a given lead ID.
+     *
+     * @param leadId the ID of the lead
+     * @return a Uni containing the KYB status
+     */
     public Uni<KYBStatus> getKYBStatus(UUID leadId) {
         return kybRepository.findByLeadId(leadId)
                 .flatMap(optionalKybDoc -> {
@@ -172,6 +241,12 @@ public class DanayaService {
                 });
     }
 
+    /**
+     * Checks if the KYB is verified for a given lead ID.
+     *
+     * @param leadId the ID of the lead
+     * @return a Uni containing a boolean indicating if the KYB is verified
+     */
     public Uni<Boolean> isKYBVerified(UUID leadId) {
         return kybRepository.findByLeadId(leadId)
                 .map(optionalKyb -> optionalKyb.map(kyb -> kyb.getCniProgressionVerification() == 100).orElse(false));
