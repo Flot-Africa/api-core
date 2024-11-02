@@ -27,10 +27,10 @@ public class Package extends PanacheEntityBase {
     private BigDecimal weeklyPayment;
 
     @Column(name = "contract_duration", nullable = false)
-    private Integer contractDuration; // Durée en mois
+    private Integer contractDuration;
 
     @Column(name = "weekly_mileage_limit", nullable = false)
-    private Integer weeklyMileageLimit; // Limite kilométrique hebdomadaire
+    private Integer weeklyMileageLimit;
 
     @Column(name = "maintenance_included")
     private Boolean maintenanceIncluded;
@@ -39,7 +39,7 @@ public class Package extends PanacheEntityBase {
     private Boolean insuranceIncluded;
 
     @Column(name = "excess_mileage_fee", precision = 10, scale = 2)
-    private BigDecimal excessMileageFee; // Frais par km supplémentaire
+    private BigDecimal excessMileageFee;
 
     @Column(name = "roadside_assistance")
     private Boolean roadsideAssistance;

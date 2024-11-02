@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @EqualsAndHashCode(callSuper = true)
 @Entity
-@Table(name = "account")
+@Table(name = "accounts")
 @Data
 public class Account extends PanacheEntityBase {
 

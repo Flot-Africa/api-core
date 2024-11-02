@@ -28,42 +28,34 @@ public class DocumentResource {
     @Path("/verify")
     @RolesAllowed("ADMIN")
     public Uni<Response> verifyDocuments(DocumentRequest request) {
-        // Vérifier d'abord si le lead existe
         return leadRepository.existsById(request.getLeadId())
-                .flatMap(exists -> {
-                    if (!exists) {
-                        return Uni.createFrom().item(ApiResponseBuilder.failure("Lead not found", Response.Status.NOT_FOUND));
-                    }
-                    // Si le lead existe, continuer avec la vérification des documents
-                    return danayaService.verifyIdDocumentWithPolling(
-                                    request.getBucketName(),
-                                    request.getFrontImageName(),
-                                    request.getBackImageName(),
-                                    request.getLeadId()
-                            )
-                            .onItem().transform(ApiResponseBuilder::success)
-                            .onFailure().recoverWithItem(throwable ->
-                                    ApiResponseBuilder.failure(throwable.getMessage(), Response.Status.BAD_REQUEST)
-                            );
-                });
+                .flatMap(exists -> exists ?
+                        danayaService.verifyIdDocumentWithPolling(
+                                        request.getBucketName(),
+                                        request.getFrontImageName(),
+                                        request.getBackImageName(),
+                                        request.getLeadId()
+                                )
+                                .onItem().transform(ApiResponseBuilder::success)
+                                .onFailure().recoverWithItem(throwable ->
+                                        ApiResponseBuilder.failure(throwable.getMessage(), Response.Status.BAD_REQUEST)
+                                ) :
+                        Uni.createFrom().item(ApiResponseBuilder.failure("Lead not found", Response.Status.NOT_FOUND))
+                );
     }
 
     @GET
     @Path("/kyb/status/{leadId}")
     @RolesAllowed("ADMIN")
     public Uni<Response> getKYBStatus(@PathParam("leadId") UUID leadId) {
-        // Vérifier d'abord si le lead existe
         return leadRepository.existsById(leadId)
-                .flatMap(exists -> {
-                    if (!exists) {
-                        return Uni.createFrom().item(ApiResponseBuilder.failure("Lead not found", Response.Status.NOT_FOUND));
-                    }
-                    // Si le lead existe, continuer avec la récupération du statut KYB
-                    return danayaService.getKYBStatus(leadId)
-                            .onItem().transform(ApiResponseBuilder::success)
-                            .onFailure().recoverWithItem(throwable ->
-                                    ApiResponseBuilder.failure(throwable.getMessage(), Response.Status.INTERNAL_SERVER_ERROR)
-                            );
-                });
+                .flatMap(exists -> exists ?
+                        danayaService.getKYBStatus(leadId)
+                                .onItem().transform(ApiResponseBuilder::success)
+                                .onFailure().recoverWithItem(throwable ->
+                                        ApiResponseBuilder.failure(throwable.getMessage(), Response.Status.INTERNAL_SERVER_ERROR)
+                                ) :
+                        Uni.createFrom().item(ApiResponseBuilder.failure("Lead not found", Response.Status.NOT_FOUND))
+                );
     }
 }
