@@ -7,51 +7,42 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-      attestations: write  # Optionnel, requis si vous poussez les attestations vers un registre
     steps:
       - uses: actions/checkout@v3
 
-      - name: Configurer JDK
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'maven'
 
-      - name: Créer le répertoire JWT
+      - name: Create JWT Directory
         run: mkdir -p src/main/resources/jwt
 
-      - name: Configurer les clés JWT
+      - name: Setup JWT Keys
         run: |
           echo "${{ secrets.JWT_PRIVATE_KEY }}" > src/main/resources/jwt/privateKey.pem
           echo "${{ secrets.JWT_PUBLIC_KEY }}" > src/main/resources/jwt/publicKey.pem
           chmod 600 src/main/resources/jwt/privateKey.pem src/main/resources/jwt/publicKey.pem
 
-      - name: Construire l'image native et l'image Docker
-        run: |
-          mvn clean package -Pnative -DskipTests \
-            -Dquarkus.native.container-build=true \
-            -Dquarkus.native.additional-build-args="-march=x86-64" \
-            -Dquarkus.container-image.build=true \
-            -Dquarkus.container-image.push=false \
-            -Dquarkus.container-image.registry=${{ env.DOCKER_REGISTRY }} \
-            -Dquarkus.container-image.group=flot701 \
-            -Dquarkus.container-image.name=flot-api \
-            -Dquarkus.container-image.tags=latest
-
-      - name: Se connecter à Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Pousser l'image Docker
+      - name: Build and Push Native Image
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
-          docker push ${{ env.DOCKER_REGISTRY }}/flot701/flot-api:latest
-
-      - name: Déployer sur Coolify
-        run: |
-          curl --request GET '${{ secrets.COOLIFY_WEBHOOK }}' --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}'
+          mvn clean package -Pnative -DskipTests \
+            -Dquarkus.native.container-build=true \
+            -Dquarkus.native.additional-build-args="-march=x86-64" \
+            -Dquarkus.container-image.build=true \
+            -Dquarkus.container-image.push=true \
+            -Dquarkus.container-image.registry=${{ env.DOCKER_REGISTRY }} \
+            -Dquarkus.container-image.group=flot701 \
+            -Dquarkus.container-image.name=flot-api \
+            -Dquarkus.container-image.tags=latest
