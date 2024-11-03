@@ -1,9 +1,11 @@
 package africa.flot.infrastructure.interfaces.rest;
 
+import africa.flot.application.dto.query.PackageDTO;
 import africa.flot.application.ports.PackageService;
 import africa.flot.domain.model.Account;
 import africa.flot.domain.model.LeadScore;
 import africa.flot.domain.model.valueobject.DetailedScore;
+import africa.flot.infrastructure.mappers.PackageMappers;
 import africa.flot.infrastructure.util.ApiResponseBuilder;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
@@ -61,6 +63,8 @@ public class PackageResource {
                 });
     }
 
+    //////////////
+
     @GET
     @Path("/{leadId}/current")
     @RolesAllowed("ADMIN")
@@ -71,7 +75,9 @@ public class PackageResource {
                     if (account == null || account.getSubscribedPackage() == null) {
                         throw new NotFoundException("Aucun package trouvé pour le client avec le lead: " + leadId);
                     }
-                    return Uni.createFrom().item(ApiResponseBuilder.success(account.getSubscribedPackage()));
+                    // Utilisation de MapStruct pour convertir Package en PackageDTO
+                    PackageDTO packageDTO = PackageMappers.INSTANCE.toPackageDTO(account.getSubscribedPackage());
+                    return Uni.createFrom().item(ApiResponseBuilder.success(packageDTO));
                 }))
                 .onFailure().recoverWithItem(throwable -> {
                     if (throwable instanceof NotFoundException) {
@@ -87,4 +93,6 @@ public class PackageResource {
                     );
                 });
     }
+
+
 }

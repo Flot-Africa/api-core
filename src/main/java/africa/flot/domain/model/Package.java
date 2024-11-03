@@ -2,8 +2,7 @@ package africa.flot.domain.model;
 
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -12,7 +11,10 @@ import java.util.UUID;
 @EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "packages")
-@Data
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class Package extends PanacheEntityBase {
     @Id
     private UUID id;
