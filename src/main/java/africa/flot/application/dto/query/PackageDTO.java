@@ -1,11 +1,13 @@
 package africa.flot.application.dto.query;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
+@RegisterForReflection
 public class PackageDTO {
     private UUID id;
     private String name;
