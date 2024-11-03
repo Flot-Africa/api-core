@@ -65,13 +65,14 @@ public class PackageResource {
     @Path("/{leadId}/current")
     @RolesAllowed("ADMIN")
     public Uni<Response> getClientPackage(@PathParam("leadId") UUID leadId) {
-        return Account.<Account>find("lead.id", leadId)
+        return Account.<Account>find("lead.id = ?1", leadId)
                 .firstResult()
-                .flatMap(Unchecked.function(account -> {
+                .onItem().transform(Unchecked.function(account -> {
                     if (account == null || account.getSubscribedPackage() == null) {
                         throw new NotFoundException("Aucun package trouvé pour le client avec le lead: " + leadId);
                     }
-                    return Uni.createFrom().item(ApiResponseBuilder.success(account.getSubscribedPackage()));
+                    // Charger explicitement les données nécessaires
+                    return ApiResponseBuilder.success(account.getSubscribedPackage().toDTO());
                 }))
                 .onFailure().recoverWithItem(throwable -> {
                     if (throwable instanceof NotFoundException) {

@@ -1,5 +1,6 @@
 package africa.flot.domain.model;
 
+import africa.flot.application.dto.query.PackageDTO;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -53,6 +54,26 @@ public class Package extends PanacheEntityBase {
     @Column(name = "reward_program")
     private Boolean rewardProgram;
 
-    @OneToMany(mappedBy = "subscribedPackage")
+    @OneToMany(mappedBy = "subscribedPackage", fetch = FetchType.EAGER)
     private List<Account> accounts;
+
+    // Ajoutez ceci dans la classe Package
+    public PackageDTO toDTO() {
+        PackageDTO dto = new PackageDTO();
+        dto.setId(this.id);
+        dto.setName(this.name);
+        dto.setDescription(this.description);
+        dto.setWeeklyPayment(this.weeklyPayment);
+        dto.setContractDuration(this.contractDuration);
+        dto.setWeeklyMileageLimit(this.weeklyMileageLimit);
+        dto.setMaintenanceIncluded(this.maintenanceIncluded);
+        dto.setInsuranceIncluded(this.insuranceIncluded);
+        dto.setExcessMileageFee(this.excessMileageFee);
+        dto.setRoadsideAssistance(this.roadsideAssistance);
+        dto.setChargingAccess(this.chargingAccess);
+        dto.setPurchaseOption(this.purchaseOption);
+        dto.setRewardProgram(this.rewardProgram);
+        return dto;
+    }
+
 }
