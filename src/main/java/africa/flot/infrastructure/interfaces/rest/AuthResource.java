@@ -62,26 +62,21 @@ public class AuthResource {
     @Path("/admin/login")
     @WithSession
     public Uni<Response> loginAdmin(AdminAuthCommand command) {
-        if (command == null || command.email() == null || command.password() == null) {
-            LOG.warn("loginAdmin: Invalid command received, email or password is null");
-            return Uni.createFrom().item(ApiResponseBuilder.failure("Invalid input: email and password must not be null", Response.Status.BAD_REQUEST));
+        if (command == null || command.email() == null || command.apiKey() == null || command.sessionId() == null) {
+            LOG.warn("loginAdmin: email, API Key, or session ID is null");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Invalid input: email, API Key, and session ID must not be null", Response.Status.BAD_REQUEST));
         }
-        LOG.info("loginAdmin: Attempting login for admin with email: " + command.email());
-        return authService.authenticateAdmin(command.email(), command.password())
-                .onItem().transformToUni(authenticated -> {
-                    if (authenticated) {
-                        LOG.info("loginAdmin: Authentication successful for email: " + command.email());
-                        return authService.generateAdminJWT(command.email())
-                                .onItem().transform(jwtData -> {
-                                    LOG.info("loginAdmin: JWT generated for admin with email: " + command.email());
-                                    return ApiResponseBuilder.success(jwtData);
-                                });
+
+        return authService.authenticateAdminWithApiKeyAndSession(command.email(), command.apiKey(), command.sessionId())
+                .onItem().transform(jwtData -> {
+                    if (jwtData != null) {
+                        return ApiResponseBuilder.success(jwtData);
                     } else {
-                        LOG.warn("loginAdmin: Authentication failed for email: " + command.email());
-                        return Uni.createFrom().item(ApiResponseBuilder.failure("Invalid credentials", Response.Status.UNAUTHORIZED));
+                        return ApiResponseBuilder.failure("Invalid credentials or session", Response.Status.UNAUTHORIZED);
                     }
                 });
     }
+
 
     @GET
     @Path("/me")

@@ -5,6 +5,7 @@ import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Lead;
 import africa.flot.domain.model.OldPassword;
 import africa.flot.infrastructure.repository.AccountRepository;
+import africa.flot.infrastructure.repository.SessionRepository;
 import africa.flot.infrastructure.repository.TokenBlacklistRepository;
 import africa.flot.infrastructure.repository.impl.UserRepositoryImpl;
 import io.quarkus.elytron.security.common.BcryptUtil;
@@ -45,6 +46,15 @@ public class AuthService {
 
     @ConfigProperty(name = "jwt.duration", defaultValue = "PT1H")
     Duration jwtDuration;
+
+    @Inject
+    SessionRepository sessionRepository;
+
+    @ConfigProperty(name = "session.lifetime", defaultValue = "120")
+    int sessionLifetime;
+
+    @ConfigProperty(name = "auth.admin.key")
+    String expectedApiKey;
 
     public Uni<Boolean> authenticateSubscriber(String username, String password) {
         if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
@@ -272,6 +282,52 @@ public class AuthService {
                     LOG.error("Erreur lors de la modification du mot de passe", e);
                     return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Erreur interne").build();
                 });
+    }
+
+    public Uni<Map<String, Object>> authenticateAdminWithApiKeyAndSession(String email, String apiKey, String sessionId) {
+        if (email == null || apiKey == null || sessionId == null) {
+            LOG.warn("authenticateAdminWithApiKeyAndSession: email, API Key, or session ID is null");
+            return Uni.createFrom().nullItem(); // Correction ici pour éviter l'erreur `null`
+        }
+
+        // Vérification de l'API Key
+        if (!apiKey.equals(expectedApiKey)) {
+            LOG.warn("authenticateAdminWithApiKeyAndSession: Invalid API Key");
+            return Uni.createFrom().nullItem(); // Correction ici aussi
+        }
+
+        // Vérification de l'email
+        if (!email.endsWith("@flot.africa")) {
+            LOG.warn("authenticateAdminWithApiKeyAndSession: Unauthorized email domain: " + email);
+            return Uni.createFrom().nullItem(); // Correction ici aussi
+        }
+
+        // Vérification de la session Laravel
+        return isLaravelSessionActive(sessionId)
+                .onItem().transformToUni(isSessionActive -> {
+                    if (!isSessionActive) {
+                        LOG.warn("authenticateAdminWithApiKeyAndSession: Inactive or invalid Laravel session for session ID " + sessionId);
+                        return Uni.createFrom().nullItem(); // Correction ici aussi
+                    }
+
+                    // Générer le JWT si toutes les vérifications passent
+                    return generateAdminJWT(email)
+                            .onItem().transform(jwtData -> {
+                                LOG.info("authenticateAdminWithApiKeyAndSession: JWT generated for admin with email: " + email);
+                                return jwtData;
+                            });
+                });
+    }
+    public Uni<Boolean> isLaravelSessionActive(String sessionId) {
+        if (sessionId == null || sessionId.isEmpty()) {
+            LOG.warn("isLaravelSessionActive: Session ID is missing");
+            return Uni.createFrom().item(false);
+        }
+
+        int sessionTimeoutInSeconds = sessionLifetime * 60; // Convertir en secondes
+
+        return sessionRepository.findBySessionId(sessionId)
+                .onItem().transform(session -> session != null && session.isActive(sessionTimeoutInSeconds));
     }
 
 
