@@ -26,6 +26,7 @@ public class PackageResource {
     @Inject
     PackageService packageService;
 
+    // PackageResource.java
     @GET
     @Path("/available/{leadId}")
     @RolesAllowed("ADMIN")
@@ -36,7 +37,6 @@ public class PackageResource {
                     if (score == null) {
                         throw new NotFoundException("Score non trouvé pour le lead: " + leadId);
                     }
-                    // Créer un objet DetailedScore basé sur les données de LeadScore
                     DetailedScore detailedScore = new DetailedScore(
                             score.getPersonalDataScore(),
                             score.getVtcExperienceScore(),
@@ -60,6 +60,7 @@ public class PackageResource {
                     );
                 });
     }
+
 
     @GET
     @Path("/{leadId}/current")
