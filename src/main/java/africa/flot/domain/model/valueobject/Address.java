@@ -23,6 +23,17 @@ public class Address {
     @Size(max = 255, message = "Le pays de naissance ne doit pas dépasser 255 caractères")
     private String paysNaissance;
 
+    private String addressLine1;
+    private String addressLine2;
+    private String addressLine3;
+    private Long addressTypeId;
+    private String city;
+    private Long countryId;
+    private Boolean isActive = true;
+    private Long postalCode;
+    private Long stateProvinceId;
+    private String street;
+
     // Getters et Setters
 
 }

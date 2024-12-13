@@ -4,15 +4,18 @@ import africa.flot.domain.model.enums.Gender;
 import africa.flot.domain.model.enums.HousingStatus;
 import africa.flot.domain.model.enums.MaritalStatus;
 import africa.flot.domain.model.valueobject.Address;
+import africa.flot.domain.model.valueobject.FineractAddress;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -29,6 +32,35 @@ public class Lead extends PanacheEntityBase {
     @Column(name = "phone_number")
     private String phoneNumber;
 
+    @Column(name = "fullname")
+    private String fullname;
+
+    @Column(name = "middlename")
+    private String middlename;
+
+    @Column(name = "activationDate")
+    private Integer activationDate = null;
+
+    @Column(name = "active")
+    private Boolean active = false;
+
+    @Column(name = "dateFormat")
+    private String dateFormat;
+
+    @Column(name = "locale")
+    private String locale;
+
+    private Long groupId;
+    private String externalId;
+    private String accountNo;
+    private Long staffId;
+    private String mobileNo;
+    private Long savingsProductId;
+    private Long genderId;
+    private Long clientTypeId;
+    private Long clientClassificationId;
+    private Long legalFormId;
+
     @Column(name = "last_name")
     private String lastName;
 
@@ -40,13 +72,13 @@ public class Lead extends PanacheEntityBase {
     private Gender gender;
 
     @Column(name = "birth_date")
-    private LocalDate birthDate;
+    private Date birthDate;
 
     @Column(name = "birth_place")
     private String birthPlace;
 
-    @Embedded
-    private Address address;
+    @Column(unique = true)
+    private String email;
 
     @Column(name = "permit_acquisition_date")
     private LocalDate permitAcquisitionDate;
@@ -101,4 +133,50 @@ public class Lead extends PanacheEntityBase {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+
+    @Embedded
+    private Address address;  // Adresse principale existante
+
+    @ElementCollection
+    @CollectionTable(
+            name = "lead_fineract_addresses",
+            joinColumns = @JoinColumn(name = "lead_id")
+    )
+    private List<FineractAddress> fineractAddresses = new ArrayList<>();
+
+    // Méthode utilitaire pour convertir l'adresse principale en adresse Fineract
+    public void convertMainAddressToFineract() {
+        if (this.address != null) {
+            FineractAddress fineractAddress = new FineractAddress();
+            fineractAddress.setAddressLine1(this.address.getStreet());
+            fineractAddress.setCity(this.address.getCity());
+            fineractAddress.setPostalCode(Long.valueOf(this.address.getPostalCode()));
+            fineractAddress.setCountryId(1L); // À adapter selon vos besoins
+            fineractAddress.setStateProvinceId(1L); // À adapter selon vos besoins
+            fineractAddress.setAddressTypeId(1L); // Type par défaut
+            fineractAddress.setIsActive(true);
+
+            if (this.fineractAddresses == null) {
+                this.fineractAddresses = new ArrayList<>();
+            }
+            this.fineractAddresses.add(fineractAddress);
+        }
+    }
+
+    // Méthode pour définir les adresses Fineract
+    public void setFineractAddresses(List<FineractAddress> addresses) {
+        if (addresses != null) {
+            this.fineractAddresses = addresses;
+        }
+    }
+
+    // Méthode pour obtenir les adresses au format Fineract
+    public List<FineractAddress> getFineractAddresses() {
+        if (this.fineractAddresses == null || this.fineractAddresses.isEmpty()) {
+            convertMainAddressToFineract();
+        }
+        return this.fineractAddresses;
+    }
+
 }
