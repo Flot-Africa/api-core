@@ -28,6 +28,7 @@ public class PackageResource {
     @Inject
     PackageService packageService;
 
+    // PackageResource.java
     @GET
     @Path("/available/{leadId}")
     @RolesAllowed("ADMIN")
@@ -38,7 +39,6 @@ public class PackageResource {
                     if (score == null) {
                         throw new NotFoundException("Score non trouvé pour le lead: " + leadId);
                     }
-                    // Créer un objet DetailedScore basé sur les données de LeadScore
                     DetailedScore detailedScore = new DetailedScore(
                             score.getPersonalDataScore(),
                             score.getVtcExperienceScore(),
@@ -63,21 +63,24 @@ public class PackageResource {
                 });
     }
 
-    //////////////
 
     @GET
     @Path("/{leadId}/current")
     @RolesAllowed("ADMIN")
     public Uni<Response> getClientPackage(@PathParam("leadId") UUID leadId) {
-        return Account.<Account>find("lead.id", leadId)
+        return Account.<Account>find("lead.id = ?1", leadId)
                 .firstResult()
-                .flatMap(Unchecked.function(account -> {
+                .onItem().transform(Unchecked.function(account -> {
                     if (account == null || account.getSubscribedPackage() == null) {
                         throw new NotFoundException("Aucun package trouvé pour le client avec le lead: " + leadId);
                     }
+
                     // Utilisation de MapStruct pour convertir Package en PackageDTO
                     PackageDTO packageDTO = PackageMappers.INSTANCE.toPackageDTO(account.getSubscribedPackage());
                     return Uni.createFrom().item(ApiResponseBuilder.success(packageDTO));
+                    // Charger explicitement les données nécessaires
+                    return ApiResponseBuilder.success(account.getSubscribedPackage().toDTO());
+
                 }))
                 .onFailure().recoverWithItem(throwable -> {
                     if (throwable instanceof NotFoundException) {

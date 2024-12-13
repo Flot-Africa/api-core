@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import io.quarkus.runtime.annotations.RegisterForReflection;
+import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -12,6 +14,8 @@ import java.util.UUID;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Data
+@RegisterForReflection
 public class PackageDTO {
     private UUID id;
     private String name;
@@ -47,6 +51,5 @@ public class PackageDTO {
         dto.setRewardProgram(this.rewardProgram);
         return dto;
     }
-
-
 }
+
