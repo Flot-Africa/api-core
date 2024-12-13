@@ -22,4 +22,5 @@ public class LeadRepository implements PanacheRepositoryBase<Lead, UUID> {
         return find("id", leadId).firstResult()
                 .map(Objects::nonNull);
     }
+
 }
