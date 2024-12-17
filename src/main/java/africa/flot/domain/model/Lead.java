@@ -151,7 +151,7 @@ public class Lead extends PanacheEntityBase {
             FineractAddress fineractAddress = new FineractAddress();
             fineractAddress.setAddressLine1(this.address.getStreet());
             fineractAddress.setCity(this.address.getCity());
-            fineractAddress.setPostalCode(Long.valueOf(this.address.getPostalCode()));
+            fineractAddress.setPostalCode(this.address.getPostalCode());
             fineractAddress.setCountryId(1L); // À adapter selon vos besoins
             fineractAddress.setStateProvinceId(1L); // À adapter selon vos besoins
             fineractAddress.setAddressTypeId(1L); // Type par défaut
