@@ -72,7 +72,7 @@ public class Lead extends PanacheEntityBase {
     private Gender gender;
 
     @Column(name = "birth_date")
-    private Date birthDate;
+    private LocalDate birthDate;
 
     @Column(name = "birth_place")
     private String birthPlace;
