@@ -66,32 +66,30 @@ public class FenerateServiceClientImpl {
     }
 
     public Uni<Response> createClient(CreateFeneratClientCommande command) {
-        return Uni.createFrom().emitter(em -> {
-            CompletableFuture.runAsync(() -> {
-                try {
-                    validateCommand(command);
-                    String requestBody = createFineractRequest(command);
-                    Response response = sendFineractRequest(requestBody);
+        return Uni.createFrom().emitter(em -> CompletableFuture.runAsync(() -> {
+            try {
+                validateCommand(command);
+                String requestBody = createFineractRequest(command);
+                Response response = sendFineractRequest(requestBody);
 
-                    if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-                        String generatedPassword = PasswordGenerator.generate();
-                        String clientUsername = formatPhoneNumber(command.getMobileNo());
-                        sendWelcomeSms(clientUsername, generatedPassword)
-                                .subscribe().with(
-                                        smsResponse -> em.complete(response),
-                                        error -> {
-                                            LOG.error("Erreur lors de l'envoi du SMS mais création client OK", error);
-                                            em.complete(response);
-                                        }
-                                );
-                    } else {
-                        em.complete(response);
-                    }
-                } catch (Exception e) {
-                    em.fail(e);
+                if (response.getStatus() == Response.Status.OK.getStatusCode()) {
+                    String generatedPassword = PasswordGenerator.generate();
+                    String clientUsername = formatPhoneNumber(command.getMobileNo());
+                    sendWelcomeSms(clientUsername, generatedPassword)
+                            .subscribe().with(
+                                    smsResponse -> em.complete(response),
+                                    error -> {
+                                        LOG.error("Erreur lors de l'envoi du SMS mais création client OK", error);
+                                        em.complete(response);
+                                    }
+                            );
+                } else {
+                    em.complete(response);
                 }
-            }, executorService);
-        });
+            } catch (Exception e) {
+                em.fail(e);
+            }
+        }, executorService));
     }
 
     private void validateCommand(CreateFeneratClientCommande command) {
