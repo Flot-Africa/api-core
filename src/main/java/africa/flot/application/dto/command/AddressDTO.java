@@ -1,11 +1,7 @@
 package africa.flot.application.dto.command;
 
-import africa.flot.domain.model.valueobject.Address;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Data
 public class AddressDTO {

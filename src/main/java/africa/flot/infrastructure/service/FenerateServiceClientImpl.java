@@ -1,7 +1,9 @@
-// 1. FenerateServiceClientImpl.java
 package africa.flot.infrastructure.service;
 
 import africa.flot.application.dto.command.CreateFeneratClientCommande;
+import africa.flot.application.dto.command.InitLoanCommande;
+import africa.flot.application.mappers.LeadToFeneratClientMapper;
+import africa.flot.domain.model.Lead;
 import africa.flot.domain.model.exception.BusinessException;
 import africa.flot.infrastructure.util.PasswordGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +12,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.Entity;
@@ -20,11 +23,9 @@ import org.jboss.logging.Logger;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -68,57 +69,131 @@ public class FenerateServiceClientImpl {
         executorService.shutdown();
     }
 
-    public Uni<Response> createClient(CreateFeneratClientCommande command) {
-        return Uni.createFrom().emitter(em -> {
-            CompletableFuture.runAsync(() -> {
-                try {
-                    validateCommand(command);
-                    String requestBody = createFineractRequest(command);
-                    Response response = sendFineractRequest(requestBody);
+    public Uni<Response> createClient(InitLoanCommande commande) {
+        return Lead.<Lead>findById(commande.getLeadId())  // Cast explicite avec le type générique
+                .onItem().ifNull().failWith(() -> new NotFoundException("Lead not found with id: " + commande.getLeadId()))
+                .flatMap(lead -> {
+                    CreateFeneratClientCommande  command = LeadToFeneratClientMapper.toCommand(lead);
 
-                    if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-                        String generatedPassword = PasswordGenerator.generate();
-                        String clientUsername = formatPhoneNumber(command.getMobileNo());
-                        sendWelcomeSms(clientUsername, generatedPassword)
-                                .subscribe().with(
-                                        smsResponse -> em.complete(response),
-                                        error -> {
-                                            LOG.error("Erreur SMS mais création client OK", error);
-                                            em.complete(response);
-                                        }
-                                );
-                    } else {
-                        em.complete(response);
-                    }
-                } catch (Exception e) {
-                    em.fail(e);
-                }
-            }, executorService);
-        });
+                    return Uni.createFrom().emitter(em -> CompletableFuture.runAsync(() -> {
+                        try {
+                            validateCommand(command);
+                            String requestBody = createFineractRequest(command);
+                            Response response = sendFineractRequest(requestBody);
+
+                            // Pour le 24 decembre
+                            if (response.getStatus() == Response.Status.OK.getStatusCode()) {
+
+                                //TODO: 1. appeler api qui reccupère le   produits de pret a parti de command.produitId ,  /v1/loanproducts/{productId}: pathParam(produitId)
+                                //TODO: 2. reccupère le client à qui on attribue le prêt a parti de  l externalId = command.leadId cast(UUID)   /v1/clients/external-id/{externalId}/accounts: pathParam(externalId)
+                                //TODO: 3. on crée un compte de prêt /v1/loans
+                                     /*    {
+                                    "amortizationType": 1,
+                                        "charges": [],
+                                    "clientId": 15,
+                                        "dateFormat": "dd MMMM yyyy",
+                                        "daysInYearType": 360,
+                                        "disbursementData": [
+                                    {
+                                        "expectedDisbursementDate": "23 décembre 2024",
+                                            "principal": 10000000
+                                    }
+    ],
+                                    "enableInstallmentLevelDelinquency": false,
+                                        "expectedDisbursementDate": "23 décembre 2024",
+                                        "externalId": "2we355",
+                                        "graceOnArrearsAgeing": 1,
+                                        "graceOnInterestCharged": 1,
+                                        "graceOnInterestPayment": 1,
+                                        "graceOnPrincipalPayment": 1,
+                                        "interestCalculationPeriodType": 1,
+                                        "interestRateFrequencyType": 2,
+                                        "interestRatePerPeriod": 20,
+                                        "interestType": 0,
+                                        "loanScheduleProcessingType": "HORIZONTAL",
+                                        "loanTermFrequency": 36,
+                                        "loanTermFrequencyType": 2,
+                                        "loanType": "individual",
+                                        "locale": "fr",
+                                        "maxOutstandingLoanBalance": 10000000,
+                                        "numberOfRepayments": 36,
+                                        "principal": 10000000,
+                                        "productId": 2,
+                                        "repaymentEvery": 1,
+                                        "repaymentFrequencyType": 2,
+                                        "repaymentsStartingFromDate": "23 décembre 2024",
+                                        "submittedOnDate": "23 décembre 2024",
+                                        "transactionProcessingStrategyCode": "principal-interest-penalties-fees-order-strategy"
+                                }
+*/
+
+
+
+                                String generatedPassword = PasswordGenerator.generate();
+                                String clientUsername = formatPhoneNumber(command.getMobileNo());
+                                sendWelcomeSms(clientUsername, generatedPassword)
+                                        .subscribe().with(
+                                                smsResponse -> em.complete(response),
+                                                error -> {
+                                                    LOG.error("Erreur lors de l'envoi du SMS mais création client OK", error);
+                                                    em.complete(response);
+                                                }
+                                        );
+                            } else {
+                                em.complete(response);
+                            }
+                        } catch (Exception e) {
+                            em.fail(e);
+                        }
+                    }, executorService));
+                });
     }
+
 
     private void validateCommand(CreateFeneratClientCommande command) {
-        if (command.getMobileNo() == null || command.getMobileNo().trim().isEmpty()) {
-            throw new BusinessException("Le numéro de téléphone est obligatoire");
+        List<String> errors = new ArrayList<>();
+
+        // Validation du nom
+        if (!isValidNameCombination(command)) {
+            errors.add("Soit firstname/lastname, soit fullname doit être fourni");
         }
+
+        // Validation de l'officeId
         if (command.getOfficeId() == null) {
-            throw new BusinessException("L'ID de l'agence est obligatoire");
+            errors.add("L'ID de l'agence est obligatoire");
         }
-        if (!isValidName(command)) {
-            throw new BusinessException("Le nom et prénom ou le nom complet sont obligatoires");
+
+        // Validation de l'activation
+        if (Boolean.TRUE.equals(command.getActive()) && command.getActivationDate() == null) {
+            errors.add("La date d'activation est obligatoire quand le client est actif");
+        }
+
+        // Validation de l'adresse si activée
+        if (command.getAddress() != null && command.getAddress().isEmpty()) {
+            errors.add("La liste d'adresses ne peut pas être vide si elle est fournie");
+        }
+
+        // Validation du numéro de téléphone pour l'envoi du SMS
+        if (command.getMobileNo() == null || command.getMobileNo().trim().isEmpty()) {
+            errors.add("Le numéro de téléphone est obligatoire pour l'envoi des identifiants");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new BusinessException("Erreurs de validation: " + String.join(", ", errors));
         }
     }
 
-    private boolean isValidName(CreateFeneratClientCommande command) {
-        return (command.getFirstname() != null && command.getLastname() != null) ||
-                (command.getFullname() != null && !command.getFullname().trim().isEmpty());
+    private boolean isValidNameCombination(CreateFeneratClientCommande command) {
+        boolean hasPersonName = command.getFirstname() != null && command.getLastname() != null;
+        boolean hasFullName = command.getFullname() != null && !command.getFullname().trim().isEmpty();
+        return hasPersonName || hasFullName;
     }
 
     private String createFineractRequest(CreateFeneratClientCommande command) {
         try {
             Map<String, Object> request = new HashMap<>();
 
-            // Informations d'identité
+            // Gestion du nom
             if (command.getFullname() != null) {
                 request.put("fullname", command.getFullname());
             } else {
@@ -135,15 +210,21 @@ public class FenerateServiceClientImpl {
             request.put("locale", command.getLocale() != null ? command.getLocale() : "fr");
             request.put("dateFormat", command.getDateFormat() != null ? command.getDateFormat() : "dd MMMM yyyy");
 
+            // Gestion de la date d'activation
             if (Boolean.TRUE.equals(command.getActive())) {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy",
-                        Locale.forLanguageTag(command.getLocale() != null ? command.getLocale() : "fr"));
-                request.put("activationDate", command.getActivationDate() != null ?
-                        String.format(String.valueOf(formatter)) :
-                        LocalDateTime.now().format(formatter));
+                String locale = command.getLocale() != null ? command.getLocale() : "fr";
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.forLanguageTag(locale));
+
+                if (command.getActivationDate() != null) {
+                    // utilise la forme : 17 décembre 2024 pour que sa puise marchez
+                    request.put("activationDate", command.getActivationDate());
+                } else {
+                    request.put("activationDate", LocalDateTime.now().format(formatter));
+                }
             }
 
-            // Informations additionnelles
+            // Gestion des champs optionnels
+            addIfNotNull(request, "groupId", command.getGroupId());
             addIfNotNull(request, "externalId", command.getExternalId());
             addIfNotNull(request, "accountNo", command.getAccountNo());
             addIfNotNull(request, "staffId", command.getStaffId());
@@ -155,10 +236,16 @@ public class FenerateServiceClientImpl {
             addIfNotNull(request, "legalFormId", command.getLegalFormId());
             addIfNotNull(request, "emailAddress", command.getEmailAddress());
 
+            // Gestion de la date de naissance
             if (command.getDateOfBirth() != null) {
-                request.put("dateOfBirth", command.getDateOfBirth().toString());
+                LocalDateTime dateOfBirth = command.getDateOfBirth().toInstant()
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDateTime();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(command.getDateFormat());
+                request.put("dateOfBirth", dateOfBirth.format(formatter));
             }
 
+            // Gestion des adresses
             if (command.getAddress() != null && !command.getAddress().isEmpty()) {
                 request.put("address", command.getAddress());
             }
