@@ -1,6 +1,9 @@
 package africa.flot.infrastructure.service;
 
 import africa.flot.application.dto.command.CreateFeneratClientCommande;
+import africa.flot.application.dto.command.InitLoanCommande;
+import africa.flot.application.mappers.LeadToFeneratClientMapper;
+import africa.flot.domain.model.Lead;
 import africa.flot.domain.model.exception.BusinessException;
 import africa.flot.infrastructure.util.PasswordGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,6 +12,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.Entity;
@@ -65,32 +69,86 @@ public class FenerateServiceClientImpl {
         executorService.shutdown();
     }
 
-    public Uni<Response> createClient(CreateFeneratClientCommande command) {
-        return Uni.createFrom().emitter(em -> CompletableFuture.runAsync(() -> {
-            try {
-                validateCommand(command);
-                String requestBody = createFineractRequest(command);
-                Response response = sendFineractRequest(requestBody);
+    public Uni<Response> createClient(InitLoanCommande commande) {
+        return Lead.<Lead>findById(commande.getLeadId())  // Cast explicite avec le type générique
+                .onItem().ifNull().failWith(() -> new NotFoundException("Lead not found with id: " + commande.getLeadId()))
+                .flatMap(lead -> {
+                    CreateFeneratClientCommande  command = LeadToFeneratClientMapper.toCommand(lead);
 
-                if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-                    String generatedPassword = PasswordGenerator.generate();
-                    String clientUsername = formatPhoneNumber(command.getMobileNo());
-                    sendWelcomeSms(clientUsername, generatedPassword)
-                            .subscribe().with(
-                                    smsResponse -> em.complete(response),
-                                    error -> {
-                                        LOG.error("Erreur lors de l'envoi du SMS mais création client OK", error);
-                                        em.complete(response);
+                    return Uni.createFrom().emitter(em -> CompletableFuture.runAsync(() -> {
+                        try {
+                            validateCommand(command);
+                            String requestBody = createFineractRequest(command);
+                            Response response = sendFineractRequest(requestBody);
+
+                            // Pour le 24 decembre
+                            if (response.getStatus() == Response.Status.OK.getStatusCode()) {
+
+                                //TODO: 1. appeler api qui reccupère le   produits de pret a parti de command.produitId ,  /v1/loanproducts/{productId}: pathParam(produitId)
+                                //TODO: 2. reccupère le client à qui on attribue le prêt a parti de  l externalId = command.leadId cast(UUID)   /v1/clients/external-id/{externalId}/accounts: pathParam(externalId)
+                                //TODO: 3. on crée un compte de prêt /v1/loans
+                                     /*    {
+                                    "amortizationType": 1,
+                                        "charges": [],
+                                    "clientId": 15,
+                                        "dateFormat": "dd MMMM yyyy",
+                                        "daysInYearType": 360,
+                                        "disbursementData": [
+                                    {
+                                        "expectedDisbursementDate": "23 décembre 2024",
+                                            "principal": 10000000
                                     }
-                            );
-                } else {
-                    em.complete(response);
-                }
-            } catch (Exception e) {
-                em.fail(e);
-            }
-        }, executorService));
+    ],
+                                    "enableInstallmentLevelDelinquency": false,
+                                        "expectedDisbursementDate": "23 décembre 2024",
+                                        "externalId": "2we355",
+                                        "graceOnArrearsAgeing": 1,
+                                        "graceOnInterestCharged": 1,
+                                        "graceOnInterestPayment": 1,
+                                        "graceOnPrincipalPayment": 1,
+                                        "interestCalculationPeriodType": 1,
+                                        "interestRateFrequencyType": 2,
+                                        "interestRatePerPeriod": 20,
+                                        "interestType": 0,
+                                        "loanScheduleProcessingType": "HORIZONTAL",
+                                        "loanTermFrequency": 36,
+                                        "loanTermFrequencyType": 2,
+                                        "loanType": "individual",
+                                        "locale": "fr",
+                                        "maxOutstandingLoanBalance": 10000000,
+                                        "numberOfRepayments": 36,
+                                        "principal": 10000000,
+                                        "productId": 2,
+                                        "repaymentEvery": 1,
+                                        "repaymentFrequencyType": 2,
+                                        "repaymentsStartingFromDate": "23 décembre 2024",
+                                        "submittedOnDate": "23 décembre 2024",
+                                        "transactionProcessingStrategyCode": "principal-interest-penalties-fees-order-strategy"
+                                }
+*/
+
+
+
+                                String generatedPassword = PasswordGenerator.generate();
+                                String clientUsername = formatPhoneNumber(command.getMobileNo());
+                                sendWelcomeSms(clientUsername, generatedPassword)
+                                        .subscribe().with(
+                                                smsResponse -> em.complete(response),
+                                                error -> {
+                                                    LOG.error("Erreur lors de l'envoi du SMS mais création client OK", error);
+                                                    em.complete(response);
+                                                }
+                                        );
+                            } else {
+                                em.complete(response);
+                            }
+                        } catch (Exception e) {
+                            em.fail(e);
+                        }
+                    }, executorService));
+                });
     }
+
 
     private void validateCommand(CreateFeneratClientCommande command) {
         List<String> errors = new ArrayList<>();

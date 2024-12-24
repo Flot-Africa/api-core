@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,6 +31,9 @@ public class Lead extends PanacheEntityBase {
     @Column(name = "phone_number")
     private String phoneNumber;
 
+    @Column(name = "office_id")
+    private int officeId;
+
     @Column(name = "fullname")
     private String fullname;
 
@@ -39,7 +41,7 @@ public class Lead extends PanacheEntityBase {
     private String middlename;
 
     @Column(name = "activationDate")
-    private Integer activationDate = null;
+    private String activationDate ;
 
     @Column(name = "active")
     private Boolean active = false;
@@ -50,16 +52,15 @@ public class Lead extends PanacheEntityBase {
     @Column(name = "locale")
     private String locale;
 
-    private Long groupId;
-    private String externalId;
+    private Integer groupId;
     private String accountNo;
-    private Long staffId;
+    private Integer staffId;
     private String mobileNo;
-    private Long savingsProductId;
-    private Long genderId;
-    private Long clientTypeId;
-    private Long clientClassificationId;
-    private Long legalFormId;
+    private Integer savingsProductId;
+    private Integer genderId;
+    private Integer clientTypeId;
+    private Integer clientClassificationId;
+    private Integer legalFormId;
 
     @Column(name = "last_name")
     private String lastName;
