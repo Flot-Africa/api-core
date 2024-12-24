@@ -5,7 +5,9 @@ import africa.flot.application.dto.command.InitLoanCommande;
 import africa.flot.application.mappers.LeadToFeneratClientMapper;
 import africa.flot.domain.model.Lead;
 import africa.flot.domain.model.exception.BusinessException;
+import africa.flot.domain.service.LoanService;
 import africa.flot.infrastructure.util.PasswordGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.PostConstruct;
@@ -21,6 +23,8 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -49,6 +53,9 @@ public class FenerateServiceClientImpl {
     @Inject
     JetfySmsService smsService;
 
+    @Inject
+    LoanService loanService;
+
     private Client httpClient;
     private final ExecutorService executorService;
 
@@ -70,10 +77,10 @@ public class FenerateServiceClientImpl {
     }
 
     public Uni<Response> createClient(InitLoanCommande commande) {
-        return Lead.<Lead>findById(commande.getLeadId())  // Cast explicite avec le type générique
+        return Lead.<Lead>findById(commande.getLeadId())
                 .onItem().ifNull().failWith(() -> new NotFoundException("Lead not found with id: " + commande.getLeadId()))
                 .flatMap(lead -> {
-                    CreateFeneratClientCommande  command = LeadToFeneratClientMapper.toCommand(lead);
+                    CreateFeneratClientCommande command = LeadToFeneratClientMapper.toCommand(lead);
 
                     return Uni.createFrom().emitter(em -> CompletableFuture.runAsync(() -> {
                         try {
@@ -81,62 +88,36 @@ public class FenerateServiceClientImpl {
                             String requestBody = createFineractRequest(command);
                             Response response = sendFineractRequest(requestBody);
 
-                            // Pour le 24 decembre
                             if (response.getStatus() == Response.Status.OK.getStatusCode()) {
+                                JsonNode clientResponse = response.readEntity(JsonNode.class);
+                                Integer clientId = clientResponse.get("clientId").asInt();
 
-                                //TODO: 1. appeler api qui reccupère le   produits de pret a parti de command.produitId ,  /v1/loanproducts/{productId}: pathParam(produitId)
-                                //TODO: 2. reccupère le client à qui on attribue le prêt a parti de  l externalId = command.leadId cast(UUID)   /v1/clients/external-id/{externalId}/accounts: pathParam(externalId)
-                                //TODO: 3. on crée un compte de prêt /v1/loans
-                                     /*    {
-                                    "amortizationType": 1,
-                                        "charges": [],
-                                    "clientId": 15,
-                                        "dateFormat": "dd MMMM yyyy",
-                                        "daysInYearType": 360,
-                                        "disbursementData": [
-                                    {
-                                        "expectedDisbursementDate": "23 décembre 2024",
-                                            "principal": 10000000
-                                    }
-    ],
-                                    "enableInstallmentLevelDelinquency": false,
-                                        "expectedDisbursementDate": "23 décembre 2024",
-                                        "externalId": "2we355",
-                                        "graceOnArrearsAgeing": 1,
-                                        "graceOnInterestCharged": 1,
-                                        "graceOnInterestPayment": 1,
-                                        "graceOnPrincipalPayment": 1,
-                                        "interestCalculationPeriodType": 1,
-                                        "interestRateFrequencyType": 2,
-                                        "interestRatePerPeriod": 20,
-                                        "interestType": 0,
-                                        "loanScheduleProcessingType": "HORIZONTAL",
-                                        "loanTermFrequency": 36,
-                                        "loanTermFrequencyType": 2,
-                                        "loanType": "individual",
-                                        "locale": "fr",
-                                        "maxOutstandingLoanBalance": 10000000,
-                                        "numberOfRepayments": 36,
-                                        "principal": 10000000,
-                                        "productId": 2,
-                                        "repaymentEvery": 1,
-                                        "repaymentFrequencyType": 2,
-                                        "repaymentsStartingFromDate": "23 décembre 2024",
-                                        "submittedOnDate": "23 décembre 2024",
-                                        "transactionProcessingStrategyCode": "principal-interest-penalties-fees-order-strategy"
-                                }
-*/
-
-
-
-                                String generatedPassword = PasswordGenerator.generate();
-                                String clientUsername = formatPhoneNumber(command.getMobileNo());
-                                sendWelcomeSms(clientUsername, generatedPassword)
+                                // Création du prêt
+                                loanService.createLoan(clientId, commande.getProduitId(), calculateLoanAmount(lead))
                                         .subscribe().with(
-                                                smsResponse -> em.complete(response),
+                                                loanResponse -> {
+                                                    if (loanResponse.getStatus() == Response.Status.OK.getStatusCode()) {
+                                                        LOG.info("Prêt créé avec succès pour le client " + clientId);
+
+                                                        // Envoi du SMS de bienvenue
+                                                        String generatedPassword = PasswordGenerator.generate();
+                                                        String clientUsername = formatPhoneNumber(command.getMobileNo());
+                                                        sendWelcomeSms(clientUsername, generatedPassword)
+                                                                .subscribe().with(
+                                                                        smsResponse -> em.complete(response),
+                                                                        error -> {
+                                                                            LOG.error("Erreur lors de l'envoi du SMS mais création client et prêt OK", error);
+                                                                            em.complete(response);
+                                                                        }
+                                                                );
+                                                    } else {
+                                                        LOG.error("Échec de la création du prêt: " + loanResponse.getStatus());
+                                                        em.fail(new BusinessException("Échec de la création du prêt"));
+                                                    }
+                                                },
                                                 error -> {
-                                                    LOG.error("Erreur lors de l'envoi du SMS mais création client OK", error);
-                                                    em.complete(response);
+                                                    LOG.error("Erreur lors de la création du prêt", error);
+                                                    em.fail(error);
                                                 }
                                         );
                             } else {
@@ -147,6 +128,38 @@ public class FenerateServiceClientImpl {
                         }
                     }, executorService));
                 });
+    }
+
+    private BigDecimal calculateLoanAmount(Lead lead) {
+        // Implémentation du calcul du montant du prêt
+        BigDecimal salary = lead.getSalary() != null ? lead.getSalary() : BigDecimal.ZERO;
+        BigDecimal expenses = lead.getExpenses() != null ? lead.getExpenses() : BigDecimal.ZERO;
+        BigDecimal spouseIncome = lead.getSpouseIncome() != null ? lead.getSpouseIncome() : BigDecimal.ZERO;
+
+        // Calculer le revenu mensuel total
+        BigDecimal totalMonthlyIncome = salary.add(spouseIncome);
+
+        // Calculer la capacité de remboursement (revenu - dépenses)
+        BigDecimal repaymentCapacity = totalMonthlyIncome.subtract(expenses);
+
+        // Calculer le montant maximum du prêt
+        // Par exemple: capacité de remboursement × 36 mois (durée du prêt)
+        BigDecimal maxLoanAmount = repaymentCapacity.multiply(BigDecimal.valueOf(36));
+
+        // Appliquer les limites du produit
+        BigDecimal minLoanAmount = BigDecimal.valueOf(1_000_000);
+        BigDecimal maxProductLimit = BigDecimal.valueOf(50_000_000);
+
+        // S'assurer que le montant est dans les limites
+        if (maxLoanAmount.compareTo(minLoanAmount) < 0) {
+            maxLoanAmount = minLoanAmount;
+        } else if (maxLoanAmount.compareTo(maxProductLimit) > 0) {
+            maxLoanAmount = maxProductLimit;
+        }
+
+        // Arrondir au multiple de 100 le plus proche
+        return maxLoanAmount.divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN)
+                .multiply(BigDecimal.valueOf(100));
     }
 
 
