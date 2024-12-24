@@ -1,15 +1,20 @@
-// 1. FenerateServiceClientImpl.java
 package africa.flot.infrastructure.service;
 
 import africa.flot.application.dto.command.CreateFeneratClientCommande;
+import africa.flot.application.dto.command.InitLoanCommande;
+import africa.flot.application.mappers.LeadToFeneratClientMapper;
+import africa.flot.domain.model.Lead;
 import africa.flot.domain.model.exception.BusinessException;
+import africa.flot.domain.service.LoanService;
 import africa.flot.infrastructure.util.PasswordGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.Entity;
@@ -18,13 +23,13 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,6 +53,9 @@ public class FenerateServiceClientImpl {
     @Inject
     JetfySmsService smsService;
 
+    @Inject
+    LoanService loanService;
+
     private Client httpClient;
     private final ExecutorService executorService;
 
@@ -68,57 +76,137 @@ public class FenerateServiceClientImpl {
         executorService.shutdown();
     }
 
-    public Uni<Response> createClient(CreateFeneratClientCommande command) {
-        return Uni.createFrom().emitter(em -> {
-            CompletableFuture.runAsync(() -> {
-                try {
-                    validateCommand(command);
-                    String requestBody = createFineractRequest(command);
-                    Response response = sendFineractRequest(requestBody);
+    public Uni<Response> createClient(InitLoanCommande commande) {
+        return Lead.<Lead>findById(commande.getLeadId())
+                .onItem().ifNull().failWith(() -> new NotFoundException("Lead not found with id: " + commande.getLeadId()))
+                .flatMap(lead -> {
+                    CreateFeneratClientCommande command = LeadToFeneratClientMapper.toCommand(lead);
 
-                    if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-                        String generatedPassword = PasswordGenerator.generate();
-                        String clientUsername = formatPhoneNumber(command.getMobileNo());
-                        sendWelcomeSms(clientUsername, generatedPassword)
-                                .subscribe().with(
-                                        smsResponse -> em.complete(response),
-                                        error -> {
-                                            LOG.error("Erreur SMS mais création client OK", error);
-                                            em.complete(response);
-                                        }
-                                );
-                    } else {
-                        em.complete(response);
-                    }
-                } catch (Exception e) {
-                    em.fail(e);
-                }
-            }, executorService);
-        });
+                    return Uni.createFrom().emitter(em -> CompletableFuture.runAsync(() -> {
+                        try {
+                            validateCommand(command);
+                            String requestBody = createFineractRequest(command);
+                            Response response = sendFineractRequest(requestBody);
+
+                            if (response.getStatus() == Response.Status.OK.getStatusCode()) {
+                                JsonNode clientResponse = response.readEntity(JsonNode.class);
+                                Integer clientId = clientResponse.get("clientId").asInt();
+
+                                // Création du prêt
+                                loanService.createLoan(clientId, commande.getProduitId(), calculateLoanAmount(lead))
+                                        .subscribe().with(
+                                                loanResponse -> {
+                                                    if (loanResponse.getStatus() == Response.Status.OK.getStatusCode()) {
+                                                        LOG.info("Prêt créé avec succès pour le client " + clientId);
+
+                                                        // Envoi du SMS de bienvenue
+                                                        String generatedPassword = PasswordGenerator.generate();
+                                                        String clientUsername = formatPhoneNumber(command.getMobileNo());
+                                                        sendWelcomeSms(clientUsername, generatedPassword)
+                                                                .subscribe().with(
+                                                                        smsResponse -> em.complete(response),
+                                                                        error -> {
+                                                                            LOG.error("Erreur lors de l'envoi du SMS mais création client et prêt OK", error);
+                                                                            em.complete(response);
+                                                                        }
+                                                                );
+                                                    } else {
+                                                        LOG.error("Échec de la création du prêt: " + loanResponse.getStatus());
+                                                        em.fail(new BusinessException("Échec de la création du prêt"));
+                                                    }
+                                                },
+                                                error -> {
+                                                    LOG.error("Erreur lors de la création du prêt", error);
+                                                    em.fail(error);
+                                                }
+                                        );
+                            } else {
+                                em.complete(response);
+                            }
+                        } catch (Exception e) {
+                            em.fail(e);
+                        }
+                    }, executorService));
+                });
     }
+
+    private BigDecimal calculateLoanAmount(Lead lead) {
+        // Implémentation du calcul du montant du prêt
+        BigDecimal salary = lead.getSalary() != null ? lead.getSalary() : BigDecimal.ZERO;
+        BigDecimal expenses = lead.getExpenses() != null ? lead.getExpenses() : BigDecimal.ZERO;
+        BigDecimal spouseIncome = lead.getSpouseIncome() != null ? lead.getSpouseIncome() : BigDecimal.ZERO;
+
+        // Calculer le revenu mensuel total
+        BigDecimal totalMonthlyIncome = salary.add(spouseIncome);
+
+        // Calculer la capacité de remboursement (revenu - dépenses)
+        BigDecimal repaymentCapacity = totalMonthlyIncome.subtract(expenses);
+
+        // Calculer le montant maximum du prêt
+        // Par exemple: capacité de remboursement × 36 mois (durée du prêt)
+        BigDecimal maxLoanAmount = repaymentCapacity.multiply(BigDecimal.valueOf(36));
+
+        // Appliquer les limites du produit
+        BigDecimal minLoanAmount = BigDecimal.valueOf(1_000_000);
+        BigDecimal maxProductLimit = BigDecimal.valueOf(50_000_000);
+
+        // S'assurer que le montant est dans les limites
+        if (maxLoanAmount.compareTo(minLoanAmount) < 0) {
+            maxLoanAmount = minLoanAmount;
+        } else if (maxLoanAmount.compareTo(maxProductLimit) > 0) {
+            maxLoanAmount = maxProductLimit;
+        }
+
+        // Arrondir au multiple de 100 le plus proche
+        return maxLoanAmount.divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN)
+                .multiply(BigDecimal.valueOf(100));
+    }
+
 
     private void validateCommand(CreateFeneratClientCommande command) {
-        if (command.getMobileNo() == null || command.getMobileNo().trim().isEmpty()) {
-            throw new BusinessException("Le numéro de téléphone est obligatoire");
+        List<String> errors = new ArrayList<>();
+
+        // Validation du nom
+        if (!isValidNameCombination(command)) {
+            errors.add("Soit firstname/lastname, soit fullname doit être fourni");
         }
+
+        // Validation de l'officeId
         if (command.getOfficeId() == null) {
-            throw new BusinessException("L'ID de l'agence est obligatoire");
+            errors.add("L'ID de l'agence est obligatoire");
         }
-        if (!isValidName(command)) {
-            throw new BusinessException("Le nom et prénom ou le nom complet sont obligatoires");
+
+        // Validation de l'activation
+        if (Boolean.TRUE.equals(command.getActive()) && command.getActivationDate() == null) {
+            errors.add("La date d'activation est obligatoire quand le client est actif");
+        }
+
+        // Validation de l'adresse si activée
+        if (command.getAddress() != null && command.getAddress().isEmpty()) {
+            errors.add("La liste d'adresses ne peut pas être vide si elle est fournie");
+        }
+
+        // Validation du numéro de téléphone pour l'envoi du SMS
+        if (command.getMobileNo() == null || command.getMobileNo().trim().isEmpty()) {
+            errors.add("Le numéro de téléphone est obligatoire pour l'envoi des identifiants");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new BusinessException("Erreurs de validation: " + String.join(", ", errors));
         }
     }
 
-    private boolean isValidName(CreateFeneratClientCommande command) {
-        return (command.getFirstname() != null && command.getLastname() != null) ||
-                (command.getFullname() != null && !command.getFullname().trim().isEmpty());
+    private boolean isValidNameCombination(CreateFeneratClientCommande command) {
+        boolean hasPersonName = command.getFirstname() != null && command.getLastname() != null;
+        boolean hasFullName = command.getFullname() != null && !command.getFullname().trim().isEmpty();
+        return hasPersonName || hasFullName;
     }
 
     private String createFineractRequest(CreateFeneratClientCommande command) {
         try {
             Map<String, Object> request = new HashMap<>();
 
-            // Informations d'identité
+            // Gestion du nom
             if (command.getFullname() != null) {
                 request.put("fullname", command.getFullname());
             } else {
@@ -135,15 +223,21 @@ public class FenerateServiceClientImpl {
             request.put("locale", command.getLocale() != null ? command.getLocale() : "fr");
             request.put("dateFormat", command.getDateFormat() != null ? command.getDateFormat() : "dd MMMM yyyy");
 
+            // Gestion de la date d'activation
             if (Boolean.TRUE.equals(command.getActive())) {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy",
-                        Locale.forLanguageTag(command.getLocale() != null ? command.getLocale() : "fr"));
-                request.put("activationDate", command.getActivationDate() != null ?
-                        String.format(String.valueOf(formatter)) :
-                        LocalDateTime.now().format(formatter));
+                String locale = command.getLocale() != null ? command.getLocale() : "fr";
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.forLanguageTag(locale));
+
+                if (command.getActivationDate() != null) {
+                    // utilise la forme : 17 décembre 2024 pour que sa puise marchez
+                    request.put("activationDate", command.getActivationDate());
+                } else {
+                    request.put("activationDate", LocalDateTime.now().format(formatter));
+                }
             }
 
-            // Informations additionnelles
+            // Gestion des champs optionnels
+            addIfNotNull(request, "groupId", command.getGroupId());
             addIfNotNull(request, "externalId", command.getExternalId());
             addIfNotNull(request, "accountNo", command.getAccountNo());
             addIfNotNull(request, "staffId", command.getStaffId());
@@ -155,10 +249,16 @@ public class FenerateServiceClientImpl {
             addIfNotNull(request, "legalFormId", command.getLegalFormId());
             addIfNotNull(request, "emailAddress", command.getEmailAddress());
 
+            // Gestion de la date de naissance
             if (command.getDateOfBirth() != null) {
-                request.put("dateOfBirth", command.getDateOfBirth().toString());
+                LocalDateTime dateOfBirth = command.getDateOfBirth().toInstant()
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDateTime();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(command.getDateFormat());
+                request.put("dateOfBirth", dateOfBirth.format(formatter));
             }
 
+            // Gestion des adresses
             if (command.getAddress() != null && !command.getAddress().isEmpty()) {
                 request.put("address", command.getAddress());
             }

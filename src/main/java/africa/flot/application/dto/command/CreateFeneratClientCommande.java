@@ -9,7 +9,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 
@@ -27,28 +26,28 @@ public class CreateFeneratClientCommande {
     private String fullname;
 
     @NotNull(message = "officeId est obligatoire")
-    private Long officeId;
+    private Integer officeId;
 
     private Boolean active = false;
 
     @JsonFormat(pattern = "dd-MMM-yyyy")
-    private Integer activationDate;
+    private String activationDate;
 
     @JsonFormat(pattern = "dd-MMM-yyyy")
     private Date dateOfBirth;
 
     // Champs optionnels
     private String middlename;
-    private Long groupId;
+    private Integer groupId;
     private String externalId;
     private String accountNo;
-    private Long staffId;
+    private Integer staffId;
     private String mobileNo;
-    private Long savingsProductId;
-    private Long genderId;
-    private Long clientTypeId;
-    private Long clientClassificationId;
-    private Long legalFormId;
+    private Integer savingsProductId;
+    private Integer genderId;
+    private Integer clientTypeId;
+    private Integer clientClassificationId;
+    private Integer legalFormId;
     private String emailAddress;
 
 

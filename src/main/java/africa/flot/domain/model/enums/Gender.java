@@ -3,6 +3,8 @@ package africa.flot.domain.model.enums;
 public enum Gender {
     MASCULIN,
     FEMININ,
+    MALE,
+    FEMALE,
     NON_DEFINI;
 
     public static Gender fromDanayaGender(String danayaGender) {
