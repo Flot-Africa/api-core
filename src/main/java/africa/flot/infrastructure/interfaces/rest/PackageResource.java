@@ -1,9 +1,11 @@
 package africa.flot.infrastructure.interfaces.rest;
 
+import africa.flot.application.dto.query.PackageDTO;
 import africa.flot.application.ports.PackageService;
 import africa.flot.domain.model.Account;
 import africa.flot.domain.model.LeadScore;
 import africa.flot.domain.model.valueobject.DetailedScore;
+import africa.flot.infrastructure.mappers.PackageMappers;
 import africa.flot.infrastructure.util.ApiResponseBuilder;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
@@ -62,31 +64,5 @@ public class PackageResource {
     }
 
 
-    @GET
-    @Path("/{leadId}/current")
-    @RolesAllowed("ADMIN")
-    public Uni<Response> getClientPackage(@PathParam("leadId") UUID leadId) {
-        return Account.<Account>find("lead.id = ?1", leadId)
-                .firstResult()
-                .onItem().transform(Unchecked.function(account -> {
-                    if (account == null || account.getSubscribedPackage() == null) {
-                        throw new NotFoundException("Aucun package trouvé pour le client avec le lead: " + leadId);
-                    }
-                    // Charger explicitement les données nécessaires
-                    return ApiResponseBuilder.success(account.getSubscribedPackage().toDTO());
-                }))
-                .onFailure().recoverWithItem(throwable -> {
-                    if (throwable instanceof NotFoundException) {
-                        return ApiResponseBuilder.failure(
-                                throwable.getMessage(),
-                                Response.Status.NOT_FOUND
-                        );
-                    }
-                    LOG.error("Erreur lors de la récupération du package du client", throwable);
-                    return ApiResponseBuilder.failure(
-                            "Une erreur est survenue lors de la récupération du package du client.",
-                            Response.Status.INTERNAL_SERVER_ERROR
-                    );
-                });
-    }
+
 }
