@@ -4,6 +4,7 @@ import africa.flot.domain.model.exception.BusinessException;
 import africa.flot.domain.service.LoanService;
 import africa.flot.infrastructure.client.FineractClient;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -13,11 +14,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import africa.flot.infrastructure.util.DateUtil;
 import org.jboss.logging.Logger;
+import io.vertx.mutiny.core.Vertx;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 @ApplicationScoped
 public class LoanServiceImpl implements LoanService {
@@ -30,37 +33,95 @@ public class LoanServiceImpl implements LoanService {
     @Inject
     ObjectMapper objectMapper;
 
+    // On injecte Vert.x pour pouvoir revenir sur l'event loop
+    @Inject
+    Vertx vertx;
+
+    // Un Executor pour revenir sur l’event loop
+    private Executor vertxExecutor;
+
+    /**
+     * Au démarrage, on construit l’Executor
+     * basé sur le Context Vert.x (event loop).
+     */
+    @jakarta.annotation.PostConstruct
+    void init() {
+        vertxExecutor = command ->
+                vertx.getOrCreateContext().runOnContext(command);
+
+    }
+
+    /**
+     * getLoanProduct(...) : si c’est bloquant, on l’exécute sur WorkerPool.
+     * Sinon, on peut directement return le Uni de fineractClient.
+     */
     @Override
     public Uni<Response> getLoanProduct(Integer productId) {
-        return fineractClient.getLoanProduct(productId);
+        // Supposons que c’est bloquant : on déporte sur un WorkerPool,
+        // puis on revient sur l’event loop.
+        return Uni.createFrom().item(() -> productId)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                .flatMap(id ->
+                        // Appel potentiellement bloquant
+                        fineractClient.getLoanProduct(id)
+                )
+                .emitOn(vertxExecutor);
     }
 
+    /**
+     * getClientByExternalId(...) : pareil que ci-dessus.
+     */
     @Override
     public Uni<Response> getClientByExternalId(String externalId) {
-        return fineractClient.getClientByExternalId(externalId);
+        return Uni.createFrom().item(() -> externalId)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                .flatMap(id ->
+                        // Appel potentiellement bloquant
+                        fineractClient.getClientByExternalId(id)
+                )
+                .emitOn(vertxExecutor);
     }
 
+    /**
+     * createLoan(...) :
+     *   1. Récupère le produit de prêt sur WorkerPool
+     *   2. Reviens sur l’event loop
+     *   3. Crée la request (pas de Hibernate ici, c’est juste du JSON)
+     *   4. Appel createLoan(...) potentiellement bloquant sur WorkerPool
+     *   5. Reviens sur l’event loop
+     */
     @Override
     public Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount) {
-        return getLoanProduct(productId)
+        // 1) Bascule sur WorkerPool pour getLoanProduct
+        return Uni.createFrom().item(() -> productId)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                .flatMap(id -> fineractClient.getLoanProduct(id))
+                // 2) Reviens sur l’event loop
+                .emitOn(vertxExecutor)
+
+                // 3) Lecture du JsonNode et création de la requête
                 .onItem().transform(Unchecked.function(response -> {
                     if (response.getStatus() != Response.Status.OK.getStatusCode()) {
                         LOG.error("Failed to fetch loan product: " + response.getStatus());
                         throw new BusinessException("Failed to fetch loan product");
                     }
-                    return response.readEntity(JsonNode.class);
+                    JsonNode loanProduct = response.readEntity(JsonNode.class);
+                    return createLoanRequest(clientId, productId, amount, loanProduct);
                 }))
-                .onItem().transform(loanProduct -> {
-                    try {
-                        return createLoanRequest(clientId, productId, amount, loanProduct);
-                    } catch (Exception e) {
-                        LOG.error("Error creating loan request", e);
-                        throw new BusinessException("Error creating loan request: " + e.getMessage());
-                    }
-                })
-                .onItem().transformToUni(requestBody -> fineractClient.createLoan(requestBody));
+
+                // 4) Repars sur WorkerPool pour l’appel createLoan
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                .onItem().transformToUni(requestBody ->
+                        fineractClient.createLoan(requestBody)
+                )
+                // 5) Reviens sur event loop
+                .emitOn(vertxExecutor);
     }
 
+    /**
+     * Crée l’objet JSON pour la requête de création de prêt.
+     * Pas d’accès DB => pas besoin d’event loop impérativement ici.
+     */
     private String createLoanRequest(Integer clientId, Integer productId, BigDecimal amount, JsonNode loanProduct) {
         try {
             Map<String, Object> request = new HashMap<>();
@@ -89,16 +150,16 @@ public class LoanServiceImpl implements LoanService {
             // Configuration du prêt
             request.put("numberOfRepayments", loanProduct.get("numberOfRepayments").asInt());
             request.put("repaymentEvery", loanProduct.get("repaymentEvery").asInt());
-            request.put("repaymentFrequencyType", 0); // Jours
+            request.put("repaymentFrequencyType", 0); // 0 = Jours
             request.put("loanTermFrequency", loanProduct.get("numberOfRepayments").asInt());
-            request.put("loanTermFrequencyType", 0); // Jours
+            request.put("loanTermFrequencyType", 0); // 0 = Jours
 
             // Configuration des intérêts
             request.put("interestRatePerPeriod", loanProduct.get("interestRatePerPeriod").asDouble());
             request.put("interestType", 1); // Flat
             request.put("interestCalculationPeriodType", 1);
             request.put("amortizationType", 1); // Equal installments
-            request.put("interestRateFrequencyType", 3); // Par an
+            request.put("interestRateFrequencyType", 3); // 3 = Par an
 
             // Stratégie et paramètres
             request.put("transactionProcessingStrategyCode", "principal-interest-penalties-fees-order-strategy");
