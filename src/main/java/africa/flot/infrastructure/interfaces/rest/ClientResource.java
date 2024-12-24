@@ -24,7 +24,6 @@ public class ClientResource {
     @Inject
     FeneractServiceClientImpl finerateService;
 
-
     @POST
     @RolesAllowed("ADMIN")
     public Uni<Response> createClient(@RequestBody InitLoanCommande command) {
