@@ -18,23 +18,16 @@ public class LeadToFeneratClientMapper {
 
         CreateFeneratClientCommande command = new CreateFeneratClientCommande();
 
-        // Map identity fields
-        command.setExternalId(String.valueOf(lead.getId())); // Using Lead ID as external ID as specified
+        command.setExternalId(String.valueOf(lead.getId()));
         command.setFirstname(lead.getFirstName());
         command.setLastname(lead.getLastName());
         command.setMiddlename(lead.getMiddlename());
-
-        // Map personal information
         command.setMobileNo(lead.getMobileNo());
         command.setEmailAddress(lead.getEmail());
-
-        // Map basic fields from Lead
         command.setActive(lead.getActive());
         command.setActivationDate(lead.getActivationDate());
         command.setDateFormat(lead.getDateFormat());
         command.setLocale(lead.getLocale());
-
-        // Map reference IDs
         command.setGroupId(lead.getGroupId());
         command.setAccountNo(lead.getAccountNo());
         command.setStaffId(lead.getStaffId());
@@ -44,16 +37,17 @@ public class LeadToFeneratClientMapper {
         command.setClientClassificationId(lead.getClientClassificationId());
         command.setLegalFormId(lead.getLegalFormId());
 
-        // Convert LocalDate to Date for dateOfBirth if present
+        // => Ajouter ici l'officeId :
+        command.setOfficeId(lead.getOfficeId());  // <-- SI lead a un officeId
+
+        // Convert LocalDate -> Date si besoin
         if (lead.getBirthDate() != null) {
             command.setDateOfBirth(Date.from(
-                    lead.getBirthDate()
-                            .atStartOfDay(ZoneId.systemDefault())
-                            .toInstant()
+                    lead.getBirthDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
             ));
         }
 
-        // Map addresses if present
+        // Adresses (si présent)
         if (lead.getFineractAddresses() != null && !lead.getFineractAddresses().isEmpty()) {
             command.setAddress(lead.getFineractAddresses().stream()
                     .map(LeadToFeneratClientMapper::mapToAddressDTO)
@@ -62,6 +56,7 @@ public class LeadToFeneratClientMapper {
 
         return command;
     }
+
 
     private static AddressDTO mapToAddressDTO(FineractAddress fineractAddress) {
         // Note: You'll need to create and implement the AddressDTO class

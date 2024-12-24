@@ -68,7 +68,9 @@ public class FeneractServiceClientImpl {
                 )
                 .flatMap(lead -> {
                     // Transforme le Lead en commande
+                    LOG.info("Lead : " + lead.getFirstName() + " " + lead.getLastName());
                     CreateFeneratClientCommande cmd = LeadToFeneratClientMapper.toCommand(lead);
+
                     validateCommand(cmd);
 
                     // Construit le JsonObject pour Fineract
@@ -233,6 +235,7 @@ public class FeneractServiceClientImpl {
      * Valide les champs obligatoires avant de créer un client Fineract.
      */
     private void validateCommand(CreateFeneratClientCommande cmd) {
+        LOG.info("Data commande : " + cmd.getFullname());
         if ((cmd.getFullname() == null || cmd.getFullname().isBlank()) &&
                 (cmd.getFirstname() == null || cmd.getLastname() == null)) {
             throw new BusinessException("Soit fullname, soit firstname/lastname doit être fourni");
