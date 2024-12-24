@@ -36,13 +36,14 @@ jobs:
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_ORGANIZATION: ${{ secrets.DOCKER_ORGANIZATION }}
         run: |
           mvn clean package -Pnative -DskipTests \
             -Dquarkus.native.container-build=true \
             -Dquarkus.native.additional-build-args="-march=x86-64" \
             -Dquarkus.container-image.build=true \
             -Dquarkus.container-image.push=true \
-            -Dquarkus.container-image.registry=${{ env.DOCKER_REGISTRY }} \
+            -Dquarkus.container-image.registry=docker.io \
             -Dquarkus.container-image.group=flot701 \
             -Dquarkus.container-image.name=flot-api \
             -Dquarkus.container-image.tags=latest
