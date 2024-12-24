@@ -39,7 +39,7 @@ public class CreateFeneratClientCommande {
     // Champs optionnels
     private String middlename;
     private Integer groupId;
-    private Integer externalId;
+    private String externalId;
     private String accountNo;
     private Integer staffId;
     private String mobileNo;
