@@ -127,7 +127,7 @@ public class FeneractServiceClientImpl {
                                     // Persister le compte puis envoyer le SMS
                                     return account.<Account>persistAndFlush()
                                             .flatMap(savedAccount ->
-                                                    sendWelcomeSms(clientUsername, generatedPassword)
+                                                    sendWelcomeSms(lead.getPhoneNumber(), generatedPassword)
                                                             .map(smsResp -> Response.ok("Client + Prêt créés + SMS envoyé").build())
                                                             .onFailure().recoverWithItem(error -> {
                                                                 LOG.error("Échec envoi SMS, mais Client + Prêt + Compte OK", error);
