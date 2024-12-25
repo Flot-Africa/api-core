@@ -7,5 +7,5 @@ import java.math.BigDecimal;
 public interface LoanService {
     Uni<Response> getLoanProduct(Integer productId);
     Uni<Response> getClientByExternalId(String externalId);
-    Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount);
+    Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount, String externalId);
 }

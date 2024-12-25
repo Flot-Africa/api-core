@@ -1,6 +1,7 @@
 package africa.flot.infrastructure.service;
 
 import africa.flot.application.ports.SmsService;
+import africa.flot.infrastructure.client.JetfyClient;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
@@ -116,24 +117,6 @@ public class JetfySmsService implements SmsService {
 
     private int calculateSmsCount(String message) {
         return (message.length() + 159) / 160;
-    }
-
-
-    @RegisterRestClient(configKey = "jetfy-api")
-    public interface JetfyClient {
-        @POST
-        @Path("/api/v1/sms/send")
-        @Consumes(MediaType.APPLICATION_JSON)
-        Uni<ApiResponse> sendSms(
-                @HeaderParam("Authorization") String authHeader,
-                SmsRequest request
-        );
-
-        @GET
-        @Path("/api/v1/balance/sms_module")
-        Uni<BalanceResponse> getBalance(
-                @HeaderParam("Authorization") String authHeader
-        );
     }
 
     public static class SmsRequest {
