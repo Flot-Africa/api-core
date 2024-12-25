@@ -4,7 +4,7 @@ import africa.flot.domain.model.enums.Gender;
 import africa.flot.domain.model.enums.HousingStatus;
 import africa.flot.domain.model.enums.MaritalStatus;
 import africa.flot.domain.model.valueobject.Address;
-import africa.flot.domain.model.valueobject.FineractAddress;
+import africa.flot.domain.model.enums.LeadStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -13,8 +13,6 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -41,7 +39,7 @@ public class Lead extends PanacheEntityBase {
     private String middlename;
 
     @Column(name = "activationDate")
-    private String activationDate ;
+    private String activationDate;
 
     @Column(name = "active")
     private Boolean active = false;
@@ -52,7 +50,10 @@ public class Lead extends PanacheEntityBase {
     @Column(name = "locale")
     private String locale;
 
-    private Integer groupId;
+    @Column(name = "status")
+    private LeadStatus status;
+
+   /* private Integer groupId;
     private String accountNo;
     private Integer staffId;
     private String mobileNo;
@@ -61,7 +62,7 @@ public class Lead extends PanacheEntityBase {
     private Integer clientTypeId;
     private Integer clientClassificationId;
     private Integer legalFormId;
-
+*/
     @Column(name = "last_name")
     private String lastName;
 
@@ -139,45 +140,5 @@ public class Lead extends PanacheEntityBase {
     @Embedded
     private Address address;  // Adresse principale existante
 
-    @ElementCollection
-    @CollectionTable(
-            name = "lead_fineract_addresses",
-            joinColumns = @JoinColumn(name = "lead_id")
-    )
-    private List<FineractAddress> fineractAddresses = new ArrayList<>();
-
-    // Méthode utilitaire pour convertir l'adresse principale en adresse Fineract
-    public void convertMainAddressToFineract() {
-        if (this.address != null) {
-            FineractAddress fineractAddress = new FineractAddress();
-            fineractAddress.setAddressLine1(this.address.getStreet());
-            fineractAddress.setCity(this.address.getCity());
-            fineractAddress.setPostalCode(this.address.getPostalCode());
-            fineractAddress.setCountryId(1L); // À adapter selon vos besoins
-            fineractAddress.setStateProvinceId(1L); // À adapter selon vos besoins
-            fineractAddress.setAddressTypeId(1L); // Type par défaut
-            fineractAddress.setIsActive(true);
-
-            if (this.fineractAddresses == null) {
-                this.fineractAddresses = new ArrayList<>();
-            }
-            this.fineractAddresses.add(fineractAddress);
-        }
-    }
-
-    // Méthode pour définir les adresses Fineract
-    public void setFineractAddresses(List<FineractAddress> addresses) {
-        if (addresses != null) {
-            this.fineractAddresses = addresses;
-        }
-    }
-
-    // Méthode pour obtenir les adresses au format Fineract
-    public List<FineractAddress> getFineractAddresses() {
-        if (this.fineractAddresses == null || this.fineractAddresses.isEmpty()) {
-            convertMainAddressToFineract();
-        }
-        return this.fineractAddresses;
-    }
 
 }
