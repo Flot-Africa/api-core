@@ -21,9 +21,10 @@ import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Service permettant de créer un client Fineract, puis de créer un prêt,
@@ -55,10 +56,10 @@ public class FeneractServiceClientImpl {
     @WithSession
     public Uni<Response> createClient(InitLoanCommande commande) {
         return Lead.<Lead>find("""
-        select l
-        from Lead l
-        where l.id = ?1
-    """, commande.getLeadId())
+                            select l
+                            from Lead l
+                            where l.id = ?1
+                        """, commande.getLeadId())
                 .firstResult()
                 .onItem().ifNull().failWith(() ->
                         new NotFoundException("Lead introuvable : " + commande.getLeadId())
