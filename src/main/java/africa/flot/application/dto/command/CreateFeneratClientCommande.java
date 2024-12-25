@@ -17,12 +17,12 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateFeneratClientCommande {
-    private long staffId;
+    private Long staffId;
     private String firstname;
-    private long officeId;
-    private boolean isStaff;
+    private Long officeId;
+    private Boolean isStaff;
     private String dateFormat;
-    private boolean active;
+    private Boolean active;
     private String dateOfBirth;
     private String submittedOnDate;
     private String locale;
@@ -32,6 +32,5 @@ public class CreateFeneratClientCommande {
     private String mobileNo;
     private String emailAddress;
     private String activationDate;
-
-
+    private Long legalFormId;
 }

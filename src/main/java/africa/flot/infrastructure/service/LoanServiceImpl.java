@@ -35,16 +35,15 @@ public class LoanServiceImpl implements LoanService {
 
     @Inject
     @RestClient
-    FineractClient fineractClient; // Potentiellement bloquant
+    FineractClient fineractClient;
 
     @Inject
     ObjectMapper objectMapper;
 
-    // Vert.x, afin de créer un Executor pour repasser sur l'event loop
+
     @Inject
     Vertx vertx;
 
-    // Executor pour revenir sur l’event loop après exécution dans le WorkerPool
     private Executor vertxExecutor;
 
     /**

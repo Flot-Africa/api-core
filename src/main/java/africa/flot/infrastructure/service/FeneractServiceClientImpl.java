@@ -56,9 +56,8 @@ public class FeneractServiceClientImpl {
     @WithSession
     public Uni<Response> createClient(InitLoanCommande commande) {
         return Lead.<Lead>find("""
-                            select l
-                            from Lead l
-                            where l.id = ?1
+                                select l from Lead l
+                                where l.id = ?1
                         """, commande.getLeadId())
                 .firstResult()
                 .onItem().ifNull().failWith(() ->
@@ -168,20 +167,19 @@ public class FeneractServiceClientImpl {
 
         // Required fields
         request.put("officeId", cmd.getOfficeId());
-        request.put("active", cmd.isActive());
+        request.put("active", cmd.getActive());
+        request.put("legalFormId", cmd.getLegalFormId());
         request.put("locale", cmd.getLocale() != null ? cmd.getLocale() : "fr");
         request.put("dateFormat", cmd.getDateFormat() != null ? cmd.getDateFormat() : "dd MMMM yyyy");
 
         // Activation date handling
-        if (cmd.isActive() && cmd.getActivationDate() != null) {
+        if (cmd.getActive() && cmd.getActivationDate() != null) {
             request.put("activationDate", cmd.getActivationDate());
         }
 
         // Staff related fields
-        request.put("isStaff", cmd.isStaff());
-        if (cmd.getStaffId() != 0) {  // Assuming 0 is default/unset value
-            request.put("staffId", cmd.getStaffId());
-        }
+        request.put("isStaff", cmd.getIsStaff());
+        request.put("staffId", cmd.getStaffId());
 
         // Optional fields
         if (cmd.getExternalId() != null) {
@@ -229,7 +227,7 @@ public class FeneractServiceClientImpl {
         }
 
         // Validate activation date when active is true
-        if (cmd.isActive() && cmd.getActivationDate() == null) {
+        if (cmd.getActive() && cmd.getActivationDate() == null) {
             errors.add("activationDate est obligatoire quand active=true");
         }
 
