@@ -17,56 +17,21 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateFeneratClientCommande {
-
-    // Champs obligatoires si fullname n'est pas fourni
+    private long staffId;
     private String firstname;
+    private long officeId;
+    private boolean isStaff;
+    private String dateFormat;
+    private boolean active;
+    private String dateOfBirth;
+    private String submittedOnDate;
+    private String locale;
+    private List<Object> familyMembers;
     private String lastname;
-
-    // Champ obligatoire pour les entreprises
-    private String fullname;
-
-    @NotNull(message = "officeId est obligatoire")
-    private Integer officeId;
-
-    private Boolean active = false;
-
-    @JsonFormat(pattern = "dd-MMM-yyyy")
+    private String externalId;
+    private String mobileNo;
+    private String emailAddress;
     private String activationDate;
 
-    @JsonFormat(pattern = "dd-MMM-yyyy")
-    private Date dateOfBirth;
-
-    // Champs optionnels
-    private String middlename;
-    private Integer groupId;
-    private String externalId;
-    private String accountNo;
-    private Integer staffId;
-    private String mobileNo;
-    private Integer savingsProductId;
-    private Integer genderId;
-    private Integer clientTypeId;
-    private Integer clientClassificationId;
-    private Integer legalFormId;
-    private String emailAddress;
-
-
-    // Configuration locale
-    private String dateFormat = "dd MMMM yyyy";
-    private String locale = "fr";
-
-    // Liste d'adresses si activée
-    @Valid
-    private List<AddressDTO> address;
-
-    @AssertTrue(message = "Soit firstname/lastname, soit fullname doit être fourni")
-    public boolean isValidNameCombination() {
-        return (firstname != null && lastname != null) || fullname != null;
-    }
-
-    @AssertTrue(message = "activationDate est requis si active est true")
-    public boolean isValidActivation() {
-        return !Boolean.TRUE.equals(active) || activationDate != null;
-    }
 
 }

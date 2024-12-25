@@ -23,9 +23,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Service permettant de créer un client Fineract, puis de créer un prêt,
@@ -59,7 +57,6 @@ public class FeneractServiceClientImpl {
         return Lead.<Lead>find("""
         select l
         from Lead l
-        left join fetch l.fineractAddresses fa
         where l.id = ?1
     """, commande.getLeadId())
                 .firstResult()
@@ -159,38 +156,86 @@ public class FeneractServiceClientImpl {
      */
     private JsonObject createFineractRequest(CreateFeneratClientCommande cmd) {
         Map<String, Object> request = new HashMap<>();
-        if (cmd.getFullname() != null && !cmd.getFullname().isBlank()) {
-            request.put("fullname", cmd.getFullname());
-        } else {
+
+        // Basic identity fields
+        if (cmd.getFirstname() != null) {
             request.put("firstname", cmd.getFirstname());
+        }
+        if (cmd.getLastname() != null) {
             request.put("lastname", cmd.getLastname());
-            if (cmd.getMiddlename() != null) {
-                request.put("middlename", cmd.getMiddlename());
-            }
         }
 
+        // Required fields
         request.put("officeId", cmd.getOfficeId());
-        request.put("active", cmd.getActive());
+        request.put("active", cmd.isActive());
         request.put("locale", cmd.getLocale() != null ? cmd.getLocale() : "fr");
         request.put("dateFormat", cmd.getDateFormat() != null ? cmd.getDateFormat() : "dd MMMM yyyy");
 
-        if (Boolean.TRUE.equals(cmd.getActive())) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.FRANCE);
-            if (cmd.getActivationDate() != null) {
-                request.put("activationDate", cmd.getActivationDate());
-            } else {
-                request.put("activationDate", LocalDateTime.now().format(formatter));
-            }
+        // Activation date handling
+        if (cmd.isActive() && cmd.getActivationDate() != null) {
+            request.put("activationDate", cmd.getActivationDate());
         }
 
-        // Exemple de formatage du téléphone
+        // Staff related fields
+        request.put("isStaff", cmd.isStaff());
+        if (cmd.getStaffId() != 0) {  // Assuming 0 is default/unset value
+            request.put("staffId", cmd.getStaffId());
+        }
+
+        // Optional fields
+        if (cmd.getExternalId() != null) {
+            request.put("externalId", cmd.getExternalId());
+        }
+
         if (cmd.getMobileNo() != null) {
             request.put("mobileNo", formatPhoneNumber(cmd.getMobileNo()));
         }
 
-        // Etc. (autres champs à ajouter)
+        if (cmd.getEmailAddress() != null) {
+            request.put("emailAddress", cmd.getEmailAddress());
+        }
+
+        if (cmd.getDateOfBirth() != null) {
+            request.put("dateOfBirth", cmd.getDateOfBirth());
+        }
+
+        if (cmd.getSubmittedOnDate() != null) {
+            request.put("submittedOnDate", cmd.getSubmittedOnDate());
+        }
+
+        // Family members handling
+        if (cmd.getFamilyMembers() != null && !cmd.getFamilyMembers().isEmpty()) {
+            request.put("familyMembers", cmd.getFamilyMembers());
+        }
 
         return JsonObject.mapFrom(request);
+    }
+
+    private void validateCommand(CreateFeneratClientCommande cmd) {
+        List<String> errors = new ArrayList<>();
+
+        // Validate required name fields
+        if (cmd.getFirstname() == null || cmd.getFirstname().isBlank()) {
+            errors.add("firstname est obligatoire");
+        }
+        if (cmd.getLastname() == null || cmd.getLastname().isBlank()) {
+            errors.add("lastname est obligatoire");
+        }
+
+        // Validate office ID
+        if (cmd.getOfficeId() == 0) {  // Assuming 0 is invalid/unset value
+            errors.add("officeId est obligatoire");
+        }
+
+        // Validate activation date when active is true
+        if (cmd.isActive() && cmd.getActivationDate() == null) {
+            errors.add("activationDate est obligatoire quand active=true");
+        }
+
+        // Throw exception with all validation errors if any exist
+        if (!errors.isEmpty()) {
+            throw new BusinessException(String.join(", ", errors));
+        }
     }
 
     /**
@@ -232,16 +277,5 @@ public class FeneractServiceClientImpl {
     /**
      * Valide les champs obligatoires avant de créer un client Fineract.
      */
-    private void validateCommand(CreateFeneratClientCommande cmd) {
-        if ((cmd.getFullname() == null || cmd.getFullname().isBlank()) &&
-                (cmd.getFirstname() == null || cmd.getLastname() == null)) {
-            throw new BusinessException("Soit fullname, soit firstname/lastname doit être fourni");
-        }
-        if (cmd.getOfficeId() == null) {
-            throw new BusinessException("officeId obligatoire");
-        }
-        if (Boolean.TRUE.equals(cmd.getActive()) && cmd.getActivationDate() == null) {
-            throw new BusinessException("activationDate obligatoire quand active=true");
-        }
-    }
+
 }

@@ -1,3 +1,4 @@
+/*
 package africa.flot.infrastructure.service;
 
 import africa.flot.application.dto.command.CreateFeneratClientCommande;
@@ -318,4 +319,4 @@ public class FenerateServiceClientImpl {
         }
         return phoneNumber.substring(3);
     }
-}
+}*/

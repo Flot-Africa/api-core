@@ -5,6 +5,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.annotation.ClientHeaderParam;
+import org.eclipse.microprofile.rest.client.annotation.RegisterProvider;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import io.smallrye.mutiny.Uni;
 
@@ -15,12 +16,13 @@ import io.smallrye.mutiny.Uni;
  *   les propriétés :
  *     fineract-api/mp-rest/url=...
  *     fineract-api/mp-rest/connectTimeout=... etc.
- * - @ClientHeaderParam => insère un header "Fineract-Platform-TenantId: default"
+ * - @ClientHeaderParam => insère un header "fineract-platform-tenantid: default"
  *   sur toutes les requêtes.
  */
 @Path("/v1")
 @RegisterRestClient(configKey = "fineract-api")
-@ClientHeaderParam(name = "Fineract-Platform-TenantId", value = "default")
+@ClientHeaderParam(name = "fineract-platform-tenantid", value = "default")
+@RegisterProvider(FineractAuthenticationProvider.class)
 public interface FineractClient {
 
     /**

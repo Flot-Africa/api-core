@@ -1,13 +1,13 @@
 package africa.flot.application.mappers;
 
-import africa.flot.application.dto.command.AddressDTO;
 import africa.flot.application.dto.command.CreateFeneratClientCommande;
 import africa.flot.domain.model.Lead;
-import africa.flot.domain.model.valueobject.FineractAddress;
+import africa.flot.domain.model.enums.LeadStatus;
 
-import java.time.ZoneId;
-import java.util.Date;
-import java.util.stream.Collectors;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Locale;
 
 public class LeadToFeneratClientMapper {
 
@@ -18,56 +18,49 @@ public class LeadToFeneratClientMapper {
 
         CreateFeneratClientCommande command = new CreateFeneratClientCommande();
 
-        // Map identity fields
-        command.setExternalId(String.valueOf(lead.getId())); // Using Lead ID as external ID as specified
+        // Handle dates with French locale and format
+        DateTimeFormatter frenchFormatter = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.FRANCE);
+
+        // Map basic identity fields
+        command.setExternalId(String.valueOf(lead.getId()));
         command.setFirstname(lead.getFirstName());
         command.setLastname(lead.getLastName());
-        command.setMiddlename(lead.getMiddlename());
-
-        // Map personal information
-        command.setMobileNo(lead.getMobileNo());
+        command.setOfficeId(lead.getOfficeId());
+        command.setMobileNo(lead.getPhoneNumber());
         command.setEmailAddress(lead.getEmail());
 
-        // Map basic fields from Lead
-        command.setActive(lead.getActive());
-        command.setActivationDate(lead.getActivationDate());
-        command.setDateFormat(lead.getDateFormat());
-        command.setLocale(lead.getLocale());
+        // Set locale and date format with defaults
+        command.setLocale("fr");
+        command.setDateFormat("dd MMMM yyyy");
+        command.setActive(lead.getStatus() == LeadStatus.ACTIVE);
+        if (lead.getStatus() == LeadStatus.ACTIVE) {
+            command.setActive(true);
+            command.setActivationDate(LocalDateTime.now().format(frenchFormatter));
+        }else {
+            command.setActive(false);
+        }
 
-        // Map reference IDs
-        command.setGroupId(lead.getGroupId());
-        command.setAccountNo(lead.getAccountNo());
-        command.setStaffId(lead.getStaffId());
-        command.setSavingsProductId(lead.getSavingsProductId());
-        command.setGenderId(lead.getGenderId());
-        command.setClientTypeId(lead.getClientTypeId());
-        command.setClientClassificationId(lead.getClientClassificationId());
-        command.setLegalFormId(lead.getLegalFormId());
+        // Map staff related fields
+        command.setStaff(false);
 
-        // Convert LocalDate to Date for dateOfBirth if present
+
+        // Format date of birth
         if (lead.getBirthDate() != null) {
-            command.setDateOfBirth(Date.from(
-                    lead.getBirthDate()
-                            .atStartOfDay(ZoneId.systemDefault())
-                            .toInstant()
-            ));
+            command.setDateOfBirth(lead.getBirthDate().format(frenchFormatter));
         }
 
-        // Map addresses if present
-        if (lead.getFineractAddresses() != null && !lead.getFineractAddresses().isEmpty()) {
-            command.setAddress(lead.getFineractAddresses().stream()
-                    .map(LeadToFeneratClientMapper::mapToAddressDTO)
-                    .collect(Collectors.toList()));
+        // Format submission date
+        if (lead.getCreatedAt() != null) {
+            command.setSubmittedOnDate(lead.getCreatedAt().format(frenchFormatter));
+        } else {
+            // Default to current date if not provided
+            command.setSubmittedOnDate(LocalDateTime.now().format(frenchFormatter));
         }
+
+        // Map family members if they exist
+
+            command.setFamilyMembers(new ArrayList<>());
 
         return command;
-    }
-
-    private static AddressDTO mapToAddressDTO(FineractAddress fineractAddress) {
-        // Note: You'll need to create and implement the AddressDTO class
-        // based on your specific requirements
-        // Map the fields from FineractAddress to AddressDTO
-        // Implement this mapping based on your AddressDTO structure
-        return new AddressDTO();
     }
 }
