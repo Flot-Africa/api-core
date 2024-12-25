@@ -18,6 +18,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,16 +36,15 @@ public class LoanServiceImpl implements LoanService {
 
     @Inject
     @RestClient
-    FineractClient fineractClient; // Potentiellement bloquant
+    FineractClient fineractClient;
 
     @Inject
     ObjectMapper objectMapper;
 
-    // Vert.x, afin de créer un Executor pour repasser sur l'event loop
+
     @Inject
     Vertx vertx;
 
-    // Executor pour revenir sur l’event loop après exécution dans le WorkerPool
     private Executor vertxExecutor;
 
     /**
@@ -94,7 +94,7 @@ public class LoanServiceImpl implements LoanService {
      * 5) Reviens event loop
      */
     @Override
-    public Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount) {
+    public Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount, String externalId) {
         // 1) Bascule sur WorkerPool pour récupérer le produit de prêt
         return Uni.createFrom().item(productId)
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
@@ -110,7 +110,7 @@ public class LoanServiceImpl implements LoanService {
                         throw new BusinessException("Failed to fetch loan product");
                     }
                     JsonNode loanProduct = response.readEntity(JsonNode.class);
-                    return createLoanRequest(clientId, productId, amount, loanProduct);
+                    return createLoanRequest(clientId, productId, amount, loanProduct, externalId);
                 }))
 
                 // 4) Repars sur WorkerPool pour appeler createLoan (bloquant)
@@ -126,73 +126,71 @@ public class LoanServiceImpl implements LoanService {
      * Ici, pas d'accès BD, donc on peut rester n'importe où,
      * mais on le fait plutôt sur l'event loop ou WorkerPool selon la logique.
      */
-    private String createLoanRequest(Integer clientId, Integer productId, BigDecimal amount, JsonNode loanProduct) {
+    private String createLoanRequest(Integer clientId, Integer productId, BigDecimal amount, JsonNode loanProduct, String externalId) {
         try {
             Map<String, Object> request = new HashMap<>();
 
-            // 1) Validation du montant
-            BigDecimal maxPrincipal = new BigDecimal(loanProduct.get("maxPrincipal").asText());
-            BigDecimal minPrincipal = new BigDecimal(loanProduct.get("minPrincipal").asText());
-            if (amount.compareTo(maxPrincipal) > 0 || amount.compareTo(minPrincipal) < 0) {
-                throw new BusinessException("Le montant du prêt doit être entre "
-                        + minPrincipal + " et " + maxPrincipal);
-            }
-
-            // 2) Configuration de base du prêt
+            // Configuration de base
             request.put("clientId", clientId);
             request.put("productId", productId);
             request.put("principal", amount);
             request.put("loanType", "individual");
-            request.put("dateFormat", DateUtil.getDateFormat());
-            request.put("locale", DateUtil.getLocale());
+            request.put("dateFormat", "dd MMMM yyyy");
+            request.put("locale", "fr");
+            request.put("externalId", externalId);
 
-            // 3) Dates
+            // Dates importantes
             String currentDate = DateUtil.formatCurrentDate();
             request.put("submittedOnDate", currentDate);
             request.put("expectedDisbursementDate", currentDate);
             request.put("repaymentsStartingFromDate", currentDate);
 
-            // 4) Configuration du prêt
-            request.put("numberOfRepayments", loanProduct.get("numberOfRepayments").asInt());
-            request.put("repaymentEvery", loanProduct.get("repaymentEvery").asInt());
-            request.put("repaymentFrequencyType", 0); // 0 = Jours
-            request.put("loanTermFrequency", loanProduct.get("numberOfRepayments").asInt());
-            request.put("loanTermFrequencyType", 0); // 0 = Jours
+            // Configuration du prêt pour paiements journaliers
+            request.put("numberOfRepayments", 1080);     // 36 mois * 30 jours
+            request.put("repaymentEvery", 1);           // Chaque jour
+            request.put("repaymentFrequencyType", 0);   // 0 = Jours
+            request.put("loanTermFrequency", 1080);     // 36 mois * 30 jours
+            request.put("loanTermFrequencyType", 0);    // 0 = Jours
 
-            // 5) Configuration des intérêts
-            request.put("interestRatePerPeriod", loanProduct.get("interestRatePerPeriod").asDouble());
-            request.put("interestType", 1); // 1 = Flat
-            request.put("interestCalculationPeriodType", 1);
-            request.put("amortizationType", 1); // 1 = Equal installments
+            // Configuration des intérêts (18% par an)
+            request.put("interestRatePerPeriod", 18);
+            request.put("interestType", 0);             // 0 = Declining Balance
+            request.put("interestCalculationPeriodType", 1); // 1 = Same as repayment period
+            request.put("amortizationType", 1);         // 1 = Equal installments
             request.put("interestRateFrequencyType", 3); // 3 = Par an
 
-            // 6) Stratégie et paramètres
-            request.put("transactionProcessingStrategyCode", "principal-interest-penalties-fees-order-strategy");
-            request.put("loanScheduleProcessingType", "HORIZONTAL");
-            request.put("daysInYearType", 1);
-            request.put("enableInstallmentLevelDelinquency", false);
-
-            // 7) Périodes de grâce
-            request.put("graceOnPrincipalPayment", 1);
-            request.put("graceOnInterestPayment", 1);
-            request.put("graceOnInterestCharged", 1);
-            request.put("graceOnArrearsAgeing", 1);
-
-            // 8) Données de décaissement
+            // Données de décaissement
             Map<String, Object> disbursement = new HashMap<>();
             disbursement.put("expectedDisbursementDate", currentDate);
             disbursement.put("principal", amount);
             request.put("disbursementData", List.of(disbursement));
 
-            // 9) Autres champs
-            request.put("maxOutstandingLoanBalance", maxPrincipal);
+            // Configuration additionnelle
+            request.put("transactionProcessingStrategyCode", "principal-interest-penalties-fees-order-strategy");
+            request.put("loanScheduleProcessingType", "HORIZONTAL");
+            request.put("daysInYearType", 360);         // 360 jours par an
+            request.put("enableInstallmentLevelDelinquency", false);
+            request.put("maxOutstandingLoanBalance", amount);
 
-            // Convertit la Map en JSON
+            // Périodes de grâce (mises à 0 pour commencer les paiements immédiatement)
+            request.put("graceOnPrincipalPayment", 0);
+            request.put("graceOnInterestPayment", 0);
+            request.put("graceOnInterestCharged", 0);
+            request.put("graceOnArrearsAgeing", 0);
+
+            // Configuration des frais
+            List<Map<String, Object>> charges = new ArrayList<>();
+            Map<String, Object> charge = new HashMap<>();
+            charge.put("chargeId", 2);
+            charge.put("amount", 5000000); // 5M XOF de frais pour atteindre le TAEG de 40%
+            charges.add(charge);
+            request.put("charges", charges);
+
             return objectMapper.writeValueAsString(request);
 
         } catch (Exception e) {
-            LOG.error("Error creating loan request", e);
-            throw new BusinessException("Error creating loan request: " + e.getMessage());
+            LOG.error("Erreur lors de la création de la requête de prêt", e);
+            throw new BusinessException("Erreur lors de la création de la requête de prêt: " + e.getMessage());
         }
     }
 }

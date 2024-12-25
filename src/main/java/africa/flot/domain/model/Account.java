@@ -24,10 +24,6 @@ public class Account extends PanacheEntityBase {
     @JoinColumn(name = "lead_id", unique = true)
     public Lead lead;
 
-    @ManyToOne
-    @JoinColumn(name = "package_id")
-    public Package subscribedPackage;
-
     @Column(nullable = false, unique = true)
     public String username;
 
@@ -39,6 +35,8 @@ public class Account extends PanacheEntityBase {
 
     @Column(name = "last_login")
     public LocalDate lastLogin;
+    @Column(name = "fineract_client_id")
+    private Integer fineractClientId;
 
     // Méthodes utilitaires
     public void deactivate() {

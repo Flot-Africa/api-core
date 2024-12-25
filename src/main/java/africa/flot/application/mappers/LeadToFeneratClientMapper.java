@@ -25,23 +25,23 @@ public class LeadToFeneratClientMapper {
         command.setExternalId(String.valueOf(lead.getId()));
         command.setFirstname(lead.getFirstName());
         command.setLastname(lead.getLastName());
-        command.setOfficeId(lead.getOfficeId());
+        command.setOfficeId(6L);
         command.setMobileNo(lead.getPhoneNumber());
         command.setEmailAddress(lead.getEmail());
+        command.setStaffId(2L);
+        command.setIsStaff(false);
+        command.setLegalFormId(1L);
 
         // Set locale and date format with defaults
         command.setLocale("fr");
         command.setDateFormat("dd MMMM yyyy");
-        command.setActive(lead.getStatus() == LeadStatus.ACTIVE);
-        if (lead.getStatus() == LeadStatus.ACTIVE) {
+        command.setActive(lead.getStatus() == LeadStatus.VALIDEE);
+        if (lead.getStatus() == LeadStatus.VALIDEE) {
             command.setActive(true);
             command.setActivationDate(LocalDateTime.now().format(frenchFormatter));
         }else {
             command.setActive(false);
         }
-
-        // Map staff related fields
-        command.setStaff(false);
 
 
         // Format date of birth

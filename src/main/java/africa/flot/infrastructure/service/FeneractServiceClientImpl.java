@@ -3,11 +3,13 @@ package africa.flot.infrastructure.service;
 import africa.flot.application.dto.command.CreateFeneratClientCommande;
 import africa.flot.application.dto.command.InitLoanCommande;
 import africa.flot.application.mappers.LeadToFeneratClientMapper;
+import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Lead;
 import africa.flot.domain.model.exception.BusinessException;
 import africa.flot.domain.service.LoanService;
 import africa.flot.infrastructure.client.FineractClient;
 import africa.flot.infrastructure.util.PasswordGenerator;
+import io.quarkus.elytron.security.common.BcryptUtil;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
@@ -56,9 +58,8 @@ public class FeneractServiceClientImpl {
     @WithSession
     public Uni<Response> createClient(InitLoanCommande commande) {
         return Lead.<Lead>find("""
-                            select l
-                            from Lead l
-                            where l.id = ?1
+                                select l from Lead l
+                                where l.id = ?1
                         """, commande.getLeadId())
                 .firstResult()
                 .onItem().ifNull().failWith(() ->
@@ -97,34 +98,42 @@ public class FeneractServiceClientImpl {
                                 // Calcul du montant
                                 BigDecimal loanAmount = calculateLoanAmount(lead);
                                 // Appel createLoan
-                                return loanService.createLoan(clientId, commande.getProduitId(), loanAmount)
-                                        // On renvoie la réponse (Response) et le lead dans un tuple
+                                return loanService.createLoan(clientId, commande.getProduitId(), loanAmount, String.valueOf(lead.getId()))
                                         .map(loanResp -> Map.of(
                                                 "loanResponse", loanResp,
-                                                "lead", lead
+                                                "lead", lead,
+                                                "clientId", clientId
                                         ));
                             })
-                            // 3) Envoi du SMS si prêt créé OK
+                            // 3) Création du compte et envoi SMS
                             .flatMap(tuple -> {
                                 Response loanResp = (Response) tuple.get("loanResponse");
                                 Lead leadEntity = (Lead) tuple.get("lead");
+                                Integer clientId = (Integer) tuple.get("clientId");
 
                                 if (loanResp.getStatus() == Response.Status.OK.getStatusCode()) {
-                                    // Générer login et mot de passe
+                                    // Générer credentials
                                     String generatedPassword = PasswordGenerator.generate();
                                     String clientUsername = formatPhoneNumber(cmd.getMobileNo());
 
-                                    // Envoyer un SMS de bienvenue
-                                    return sendWelcomeSms(clientUsername, generatedPassword)
-                                            // En cas de succès du SMS, on renvoie un 200
-                                            .map(smsResp ->
-                                                    Response.ok("Client + Prêt créés + SMS envoyé").build()
-                                            )
-                                            // En cas d'échec SMS, on log, et on renvoie quand même un OK
-                                            .onFailure().recoverWithItem(error -> {
-                                                LOG.error("Échec envoi SMS, mais Client + Prêt OK", error);
-                                                return Response.ok("Client + Prêt créés, SMS échoué").build();
-                                            });
+                                    // Créer le compte
+                                    Account account = new Account();
+                                    account.setLead(leadEntity);
+                                    account.setUsername(clientUsername);
+                                    account.setPasswordHash(BcryptUtil.bcryptHash(generatedPassword));
+                                    account.setActive(true);
+                                    account.setFineractClientId(clientId);
+
+                                    // Persister le compte puis envoyer le SMS
+                                    return account.<Account>persistAndFlush()
+                                            .flatMap(savedAccount ->
+                                                    sendWelcomeSms(lead.getPhoneNumber(), generatedPassword)
+                                                            .map(smsResp -> Response.ok("Client + Prêt créés + SMS envoyé").build())
+                                                            .onFailure().recoverWithItem(error -> {
+                                                                LOG.error("Échec envoi SMS, mais Client + Prêt + Compte OK", error);
+                                                                return Response.ok("Client + Prêt + Compte créés, SMS échoué").build();
+                                                            })
+                                            );
                                 } else {
                                     // Le prêt a échoué, on renvoie un 500
                                     return Uni.createFrom().item(
@@ -168,20 +177,19 @@ public class FeneractServiceClientImpl {
 
         // Required fields
         request.put("officeId", cmd.getOfficeId());
-        request.put("active", cmd.isActive());
+        request.put("active", cmd.getActive());
+        request.put("legalFormId", cmd.getLegalFormId());
         request.put("locale", cmd.getLocale() != null ? cmd.getLocale() : "fr");
         request.put("dateFormat", cmd.getDateFormat() != null ? cmd.getDateFormat() : "dd MMMM yyyy");
 
         // Activation date handling
-        if (cmd.isActive() && cmd.getActivationDate() != null) {
+        if (cmd.getActive() && cmd.getActivationDate() != null) {
             request.put("activationDate", cmd.getActivationDate());
         }
 
         // Staff related fields
-        request.put("isStaff", cmd.isStaff());
-        if (cmd.getStaffId() != 0) {  // Assuming 0 is default/unset value
-            request.put("staffId", cmd.getStaffId());
-        }
+        request.put("isStaff", cmd.getIsStaff());
+        request.put("staffId", cmd.getStaffId());
 
         // Optional fields
         if (cmd.getExternalId() != null) {
@@ -229,7 +237,7 @@ public class FeneractServiceClientImpl {
         }
 
         // Validate activation date when active is true
-        if (cmd.isActive() && cmd.getActivationDate() == null) {
+        if (cmd.getActive() && cmd.getActivationDate() == null) {
             errors.add("activationDate est obligatoire quand active=true");
         }
 

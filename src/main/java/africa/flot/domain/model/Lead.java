@@ -51,18 +51,9 @@ public class Lead extends PanacheEntityBase {
     private String locale;
 
     @Column(name = "status")
+    @Enumerated(EnumType.STRING)
     private LeadStatus status;
 
-   /* private Integer groupId;
-    private String accountNo;
-    private Integer staffId;
-    private String mobileNo;
-    private Integer savingsProductId;
-    private Integer genderId;
-    private Integer clientTypeId;
-    private Integer clientClassificationId;
-    private Integer legalFormId;
-*/
     @Column(name = "last_name")
     private String lastName;
 
