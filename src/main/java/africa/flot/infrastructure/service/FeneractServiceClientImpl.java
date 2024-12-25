@@ -20,6 +20,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
+import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -251,13 +252,7 @@ public class FeneractServiceClientImpl {
      * Calcule un montant de prêt hypothétique basé sur le Lead (salaire, etc.).
      */
     private BigDecimal calculateLoanAmount(Lead lead) {
-        BigDecimal salary = lead.getSalary() != null ? lead.getSalary() : BigDecimal.ZERO;
-        BigDecimal expenses = lead.getExpenses() != null ? lead.getExpenses() : BigDecimal.ZERO;
-        BigDecimal spouseIncome = lead.getSpouseIncome() != null ? lead.getSpouseIncome() : BigDecimal.ZERO;
-
-        BigDecimal totalMonthlyIncome = salary.add(spouseIncome);
-        BigDecimal repaymentCapacity = totalMonthlyIncome.subtract(expenses);
-        BigDecimal maxLoanAmount = repaymentCapacity.multiply(BigDecimal.valueOf(36));
+        BigDecimal maxLoanAmount = getMaxLoanAmount(lead);
 
         BigDecimal minLoanAmount = BigDecimal.valueOf(1_000_000);
         BigDecimal maxProductLimit = BigDecimal.valueOf(50_000_000);
@@ -271,6 +266,16 @@ public class FeneractServiceClientImpl {
         return maxLoanAmount
                 .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN)
                 .multiply(BigDecimal.valueOf(100));
+    }
+
+    private static @NotNull BigDecimal getMaxLoanAmount(Lead lead) {
+        BigDecimal salary = lead.getSalary() != null ? lead.getSalary() : BigDecimal.ZERO;
+        BigDecimal expenses = lead.getExpenses() != null ? lead.getExpenses() : BigDecimal.ZERO;
+        BigDecimal spouseIncome = lead.getSpouseIncome() != null ? lead.getSpouseIncome() : BigDecimal.ZERO;
+
+        BigDecimal totalMonthlyIncome = salary.add(spouseIncome);
+        BigDecimal repaymentCapacity = totalMonthlyIncome.subtract(expenses);
+        return repaymentCapacity.multiply(BigDecimal.valueOf(36));
     }
 
     /**
