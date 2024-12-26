@@ -5,12 +5,15 @@ import africa.flot.application.dto.command.InitLoanCommande;
 import africa.flot.application.mappers.LeadToFeneratClientMapper;
 import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Lead;
+import africa.flot.domain.model.Vehicle;
 import africa.flot.domain.model.exception.BusinessException;
 import africa.flot.domain.service.LoanService;
 import africa.flot.infrastructure.client.FineractClient;
 import africa.flot.infrastructure.util.PasswordGenerator;
 import io.quarkus.elytron.security.common.BcryptUtil;
+import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.panache.common.Parameters;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
 import jakarta.annotation.PostConstruct;
@@ -20,22 +23,16 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
-import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
-/**
- * Service permettant de créer un client Fineract, puis de créer un prêt,
- * et enfin d'envoyer un SMS de bienvenue, le tout en mode réactif (non bloquant).
- */
 @ApplicationScoped
 public class FeneractServiceClientImpl {
-
     private static final Logger LOG = Logger.getLogger(FeneractServiceClientImpl.class);
 
     @Inject
@@ -46,174 +43,178 @@ public class FeneractServiceClientImpl {
     LoanService loanService;
 
     @Inject
-    JetfySmsService smsService; // <-- Réintroduit l'envoi de SMS
+    JetfySmsService smsService;
 
     @PostConstruct
     void init() {
         LOG.info("FenerateServiceClientImpl initialisé avec client non-bloquant.");
     }
 
-    /**
-     * Crée le client dans Fineract, puis un prêt, et enfin envoie un SMS de bienvenue.
-     */
     @WithSession
     public Uni<Response> createClient(InitLoanCommande commande) {
         return Lead.<Lead>find("""
                                 select l from Lead l
-                                where l.id = ?1
-                        """, commande.getLeadId())
+                                where l.id = :id
+                        """, Parameters.with("id", commande.getLeadId()))
+                .project(Lead.class)
                 .firstResult()
                 .onItem().ifNull().failWith(() ->
                         new NotFoundException("Lead introuvable : " + commande.getLeadId())
                 )
-                .flatMap(lead -> {
-                    // Transforme le Lead en commande
-                    CreateFeneratClientCommande cmd = LeadToFeneratClientMapper.toCommand(lead);
-                    validateCommand(cmd);
+                .flatMap(lead -> Vehicle.<Vehicle>find("""
+                                select v from Vehicle v
+                                where v.id = :id
+                        """, Parameters.with("id", commande.getVehicleId()))
+                        .project(Vehicle.class)
+                        .firstResult()
+                        .onItem().ifNull().failWith(() ->
+                                new NotFoundException("Véhicule introuvable : " + commande.getVehicleId())
+                        )
+                        .flatMap(vehicle -> {
+                            // Mapper le Lead vers la commande pour Fineract
+                            CreateFeneratClientCommande cmd = LeadToFeneratClientMapper.toCommand(lead);
+                            validateCommand(cmd);
 
-                    // Construit le JsonObject pour Fineract
-                    JsonObject payload = createFineractRequest(cmd);
+                            // Créer le payload pour l'appel Fineract
+                            JsonObject payload = createFineractRequest(cmd);
 
-                    // 1) Appel réactif : POST /v1/clients
-                    return fineractClient.createClient(payload)
-                            .onItem().invoke(resp -> {
-                                LOG.info("Réponse createClient -> HTTP " + resp.getStatus());
-                            })
-                            // 2) Création du prêt
-                            .flatMap(resp -> {
-                                if (resp.getStatus() < 200 || resp.getStatus() >= 300) {
-                                    return Uni.createFrom().failure(
-                                            new BusinessException("Échec création client Fineract, HTTP=" + resp.getStatus())
-                                    );
-                                }
-
-                                // Lire "clientId" dans la réponse
-                                JsonObject json = JsonObject.mapFrom(resp.readEntity(Map.class));
-                                Integer clientId = json.getInteger("clientId");
-                                if (clientId == null) {
-                                    return Uni.createFrom().failure(
-                                            new BusinessException("Impossible de lire clientId dans la réponse Fineract.")
-                                    );
-                                }
-
-                                // Calcul du montant
-                                BigDecimal loanAmount = calculateLoanAmount(lead);
-                                // Appel createLoan
-                                return loanService.createLoan(clientId, commande.getProduitId(), loanAmount, String.valueOf(lead.getId()))
-                                        .map(loanResp -> Map.of(
-                                                "loanResponse", loanResp,
-                                                "lead", lead,
-                                                "clientId", clientId
-                                        ));
-                            })
-                            // 3) Création du compte et envoi SMS
-                            .flatMap(tuple -> {
-                                Response loanResp = (Response) tuple.get("loanResponse");
-                                Lead leadEntity = (Lead) tuple.get("lead");
-                                Integer clientId = (Integer) tuple.get("clientId");
-
-                                if (loanResp.getStatus() == Response.Status.OK.getStatusCode()) {
-                                    // Générer credentials
-                                    String generatedPassword = PasswordGenerator.generate();
-                                    String clientUsername = formatPhoneNumber(cmd.getMobileNo());
-
-                                    // Créer le compte
-                                    Account account = new Account();
-                                    account.setLead(leadEntity);
-                                    account.setUsername(clientUsername);
-                                    account.setPasswordHash(BcryptUtil.bcryptHash(generatedPassword));
-                                    account.setActive(true);
-                                    account.setFineractClientId(clientId);
-
-                                    // Persister le compte puis envoyer le SMS
-                                    return account.<Account>persistAndFlush()
-                                            .flatMap(savedAccount ->
-                                                    sendWelcomeSms(lead.getPhoneNumber(), generatedPassword)
-                                                            .map(smsResp -> Response.ok("Client + Prêt créés + SMS envoyé").build())
-                                                            .onFailure().recoverWithItem(error -> {
-                                                                LOG.error("Échec envoi SMS, mais Client + Prêt + Compte OK", error);
-                                                                return Response.ok("Client + Prêt + Compte créés, SMS échoué").build();
-                                                            })
+                            // Appeler le client Fineract pour créer le client
+                            return fineractClient.createClient(payload)
+                                    .onItem().invoke(resp -> {
+                                        LOG.info("Réponse createClient -> HTTP " + resp.getStatus());
+                                    })
+                                    .flatMap(resp -> {
+                                        if (resp.getStatus() < 200 || resp.getStatus() >= 300) {
+                                            return Uni.createFrom().failure(
+                                                    new BusinessException("Échec création client Fineract, HTTP=" + resp.getStatus())
                                             );
-                                } else {
-                                    // Le prêt a échoué, on renvoie un 500
-                                    return Uni.createFrom().item(
-                                            Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                                                    .entity("Échec création du Prêt")
-                                                    .build()
-                                    );
-                                }
-                            });
+                                        }
+
+                                        // Extraire le clientId de la réponse
+                                        JsonObject json = JsonObject.mapFrom(resp.readEntity(Map.class));
+                                        Integer clientId = json.getInteger("clientId");
+                                        if (clientId == null) {
+                                            return Uni.createFrom().failure(
+                                                    new BusinessException("Impossible de lire clientId dans la réponse Fineract.")
+                                            );
+                                        }
+
+                                        // Créer un prêt pour le client
+                                        return loanService.createLoan(clientId, commande.getProduitId(), vehicle.price, String.valueOf(lead.getId()))
+                                                .map(loanResp -> Map.of(
+                                                        "loanResponse", loanResp,
+                                                        "lead", lead,
+                                                        "clientId", clientId
+                                                ));
+                                    });
+                        }))
+                .flatMap(data -> {
+                    Response loanResp = (Response) data.get("loanResponse");
+                    Lead lead = (Lead) data.get("lead");
+                    Integer clientId = (Integer) data.get("clientId");
+
+                    // Vérifier si le prêt a été créé avec succès
+                    if (loanResp.getStatus() == Response.Status.OK.getStatusCode()) {
+                        // Générer un mot de passe pour le compte utilisateur
+                        String generatedPassword = PasswordGenerator.generate();
+                        String clientUsername = formatPhoneNumber(lead.getPhoneNumber());
+
+                        Account account = new Account();
+                        account.setLead(lead);
+                        account.setUsername(clientUsername);
+                        account.setPasswordHash(BcryptUtil.bcryptHash(generatedPassword));
+                        account.setActive(true);
+                        account.setFineractClientId(clientId);
+
+                        // Persister le compte et envoyer un SMS de bienvenue
+                        return account.<Account>persistAndFlush()
+                                .flatMap(savedAccount ->
+                                        sendWelcomeSms(clientUsername, generatedPassword, account, lead)
+                                                .map(smsResp -> Response.ok("Client + Prêt créés + SMS envoyé").build())
+                                                .onFailure().recoverWithItem(error -> {
+                                                    LOG.error("Échec envoi SMS, mais Client + Prêt + Compte OK", error);
+                                                    return Response.ok("Client + Prêt + Compte créés, SMS échoué").build();
+                                                })
+                                );
+                    } else {
+                        return Uni.createFrom().item(
+                                Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                                        .entity("Échec création du Prêt")
+                                        .build()
+                        );
+                    }
                 })
-                // Log si le flux échoue à n'importe quel moment
-                .onFailure().invoke(err -> {
-                    LOG.error("Erreur createClient()", err);
+                .onFailure().invoke(err -> LOG.error("Erreur createClient()", err));
+    }
+
+
+    private Uni<Response> sendWelcomeSms(String clientUsername, String password, Account account, Lead lead) {
+        String message = String.format(
+                "👋 Bienvenue %s %s chez FLOT Mobility!\n\n" +
+                        "🔑 Vos identifiants FLOT:\n" +
+                        "Identifiant: %s\n" +
+                        "Mot de passe: %s\n\n" +
+                        "📱 Pour commencer votre expérience FLOT:\n" +
+                        "Téléchargez notre application:\n" +
+                        "https://flot.africa\n\n" +
+                        "⚠️ Pour votre sécurité, changez votre mot de passe à la première connexion\n" +
+                        "📞 Service client: 0779635252",
+                lead.getFirstName(),
+                lead.getLastName(),
+                clientUsername,
+                password
+        );
+        return smsService.sendSMS(lead.getPhoneNumber(), message, account)
+                .onFailure().recoverWithItem(error -> {
+                    LOG.error("Échec envoi SMS initial", error);
+                    account.setPendingWelcomeSms(true);
+                    account.setTemporaryPassword(password);
+                    account.setSmsRetryCount(0);
+                    return account.<Account>persistAndFlush()
+                            .map(savedAccount -> Response.ok()
+                                    .entity("Client + Prêt + Compte créés, SMS en attente de réessai")
+                                    .build())
+                            .await().indefinitely();
                 });
     }
 
-    /**
-     * Envoi le SMS de bienvenue via JetfySmsService.
-     */
-    private Uni<Response> sendWelcomeSms(String clientUsername, String password) {
-        String message = String.format(
-                "Bienvenue chez Flot! Vos identifiants:\nIdentifiant: %s\nMot de passe: %s",
-                clientUsername, password
-        );
-        return smsService.sendSMS(clientUsername, message);
-    }
-
-    /**
-     * Construit le JsonObject pour la requête Fineract (création client).
-     */
     private JsonObject createFineractRequest(CreateFeneratClientCommande cmd) {
         Map<String, Object> request = new HashMap<>();
 
-        // Basic identity fields
-        if (cmd.getFirstname() != null) {
-            request.put("firstname", cmd.getFirstname());
-        }
-        if (cmd.getLastname() != null) {
-            request.put("lastname", cmd.getLastname());
-        }
+        // Méthode utilitaire pour éviter la répétition des if != null
+        BiConsumer<String, Object> putIfNotNull = (key, value) -> {
+            if (value != null) {
+                request.put(key, value);
+            }
+        };
 
-        // Required fields
+        // Utilisation de la méthode putIfNotNull pour les champs optionnels
+        putIfNotNull.accept("firstname", cmd.getFirstname());
+        putIfNotNull.accept("lastname", cmd.getLastname());
+        putIfNotNull.accept("externalId", cmd.getExternalId());
+        // On formate le mobile s’il n’est pas null
+        putIfNotNull.accept("mobileNo",
+                cmd.getMobileNo() != null ? formatPhoneNumber(cmd.getMobileNo()) : null
+        );
+        putIfNotNull.accept("emailAddress", cmd.getEmailAddress());
+        putIfNotNull.accept("dateOfBirth", cmd.getDateOfBirth());
+        putIfNotNull.accept("submittedOnDate", cmd.getSubmittedOnDate());
+
+        // Les champs obligatoires ou par défaut
         request.put("officeId", cmd.getOfficeId());
         request.put("active", cmd.getActive());
         request.put("legalFormId", cmd.getLegalFormId());
         request.put("locale", cmd.getLocale() != null ? cmd.getLocale() : "fr");
         request.put("dateFormat", cmd.getDateFormat() != null ? cmd.getDateFormat() : "dd MMMM yyyy");
+        request.put("isStaff", cmd.getIsStaff());
+        request.put("staffId", cmd.getStaffId());
 
-        // Activation date handling
+        // Cas particulier: on ne met l’activationDate que si active = true et activationDate non null
         if (cmd.getActive() && cmd.getActivationDate() != null) {
             request.put("activationDate", cmd.getActivationDate());
         }
 
-        // Staff related fields
-        request.put("isStaff", cmd.getIsStaff());
-        request.put("staffId", cmd.getStaffId());
-
-        // Optional fields
-        if (cmd.getExternalId() != null) {
-            request.put("externalId", cmd.getExternalId());
-        }
-
-        if (cmd.getMobileNo() != null) {
-            request.put("mobileNo", formatPhoneNumber(cmd.getMobileNo()));
-        }
-
-        if (cmd.getEmailAddress() != null) {
-            request.put("emailAddress", cmd.getEmailAddress());
-        }
-
-        if (cmd.getDateOfBirth() != null) {
-            request.put("dateOfBirth", cmd.getDateOfBirth());
-        }
-
-        if (cmd.getSubmittedOnDate() != null) {
-            request.put("submittedOnDate", cmd.getSubmittedOnDate());
-        }
-
-        // Family members handling
+        // Famille
         if (cmd.getFamilyMembers() != null && !cmd.getFamilyMembers().isEmpty()) {
             request.put("familyMembers", cmd.getFamilyMembers());
         }
@@ -224,72 +225,43 @@ public class FeneractServiceClientImpl {
     private void validateCommand(CreateFeneratClientCommande cmd) {
         List<String> errors = new ArrayList<>();
 
-        // Validate required name fields
-        if (cmd.getFirstname() == null || cmd.getFirstname().isBlank()) {
-            errors.add("firstname est obligatoire");
-        }
-        if (cmd.getLastname() == null || cmd.getLastname().isBlank()) {
-            errors.add("lastname est obligatoire");
-        }
+        // Vérifie les conditions d'erreur et ajoute un message le cas échéant
+        checkCondition(errors,
+                cmd.getFirstname() == null || cmd.getFirstname().isBlank(),
+                "firstname est obligatoire");
 
-        // Validate office ID
-        if (cmd.getOfficeId() == 0) {  // Assuming 0 is invalid/unset value
-            errors.add("officeId est obligatoire");
-        }
+        checkCondition(errors,
+                cmd.getLastname() == null || cmd.getLastname().isBlank(),
+                "lastname est obligatoire");
 
-        // Validate activation date when active is true
-        if (cmd.getActive() && cmd.getActivationDate() == null) {
-            errors.add("activationDate est obligatoire quand active=true");
-        }
+        checkCondition(errors,
+                cmd.getOfficeId() == 0,
+                "officeId est obligatoire");
 
-        // Throw exception with all validation errors if any exist
+        checkCondition(errors,
+                cmd.getActive() && cmd.getActivationDate() == null,
+                "activationDate est obligatoire quand active=true");
+
+        // S'il y a des erreurs accumulées, on lève une BusinessException
         if (!errors.isEmpty()) {
             throw new BusinessException(String.join(", ", errors));
         }
     }
 
     /**
-     * Calcule un montant de prêt hypothétique basé sur le Lead (salaire, etc.).
+     * Ajoute un message d'erreur à la liste si la condition est vraie.
      */
-    private BigDecimal calculateLoanAmount(Lead lead) {
-        BigDecimal maxLoanAmount = getMaxLoanAmount(lead);
-
-        BigDecimal minLoanAmount = BigDecimal.valueOf(1_000_000);
-        BigDecimal maxProductLimit = BigDecimal.valueOf(50_000_000);
-
-        if (maxLoanAmount.compareTo(minLoanAmount) < 0) {
-            maxLoanAmount = minLoanAmount;
-        } else if (maxLoanAmount.compareTo(maxProductLimit) > 0) {
-            maxLoanAmount = maxProductLimit;
+    private void checkCondition(List<String> errors, boolean condition, String errorMessage) {
+        if (condition) {
+            errors.add(errorMessage);
         }
-
-        return maxLoanAmount
-                .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN)
-                .multiply(BigDecimal.valueOf(100));
     }
 
-    private static @NotNull BigDecimal getMaxLoanAmount(Lead lead) {
-        BigDecimal salary = lead.getSalary() != null ? lead.getSalary() : BigDecimal.ZERO;
-        BigDecimal expenses = lead.getExpenses() != null ? lead.getExpenses() : BigDecimal.ZERO;
-        BigDecimal spouseIncome = lead.getSpouseIncome() != null ? lead.getSpouseIncome() : BigDecimal.ZERO;
 
-        BigDecimal totalMonthlyIncome = salary.add(spouseIncome);
-        BigDecimal repaymentCapacity = totalMonthlyIncome.subtract(expenses);
-        return repaymentCapacity.multiply(BigDecimal.valueOf(36));
-    }
-
-    /**
-     * Ex.: "22501234567" -> "01234567"
-     */
     private String formatPhoneNumber(String phoneNumber) {
         if (phoneNumber == null || phoneNumber.length() <= 3) {
             return phoneNumber;
         }
         return phoneNumber.substring(3);
     }
-
-    /**
-     * Valide les champs obligatoires avant de créer un client Fineract.
-     */
-
 }

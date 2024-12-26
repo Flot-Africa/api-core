@@ -1,6 +1,7 @@
 package africa.flot.infrastructure.service;
 
 import africa.flot.application.ports.SmsService;
+import africa.flot.domain.model.Account;
 import africa.flot.infrastructure.client.JetfyClient;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.smallrye.mutiny.Uni;
@@ -69,7 +70,7 @@ public class JetfySmsService implements SmsService {
 
 
     @Override
-    public Uni<Response> sendSMS(String phoneNumber, String message) {
+    public Uni<Response> sendSMS(String phoneNumber, String message, Account account) {
         return Uni.createFrom().item(() -> {
             int smsCount = calculateSmsCount(message);
             int totalCost = smsCount * COST_PER_SMS;

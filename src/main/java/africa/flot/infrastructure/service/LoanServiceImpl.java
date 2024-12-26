@@ -133,7 +133,7 @@ public class LoanServiceImpl implements LoanService {
             // Configuration de base
             request.put("clientId", clientId);
             request.put("productId", productId);
-            request.put("principal", amount);
+            request.put("principal", amount);  // Montant égal au coût du véhicule
             request.put("loanType", "individual");
             request.put("dateFormat", "dd MMMM yyyy");
             request.put("locale", "fr");
@@ -145,15 +145,15 @@ public class LoanServiceImpl implements LoanService {
             request.put("expectedDisbursementDate", currentDate);
             request.put("repaymentsStartingFromDate", currentDate);
 
-            // Configuration du prêt pour paiements journaliers
-            request.put("numberOfRepayments", 1080);     // 36 mois * 30 jours
+            // Configuration du prêt pour paiements mensuels
+            request.put("numberOfRepayments", 864);     // 36 mois * 24 jours
             request.put("repaymentEvery", 1);           // Chaque jour
             request.put("repaymentFrequencyType", 0);   // 0 = Jours
-            request.put("loanTermFrequency", 1080);     // 36 mois * 30 jours
+            request.put("loanTermFrequency", 864);      // 36 mois * 24 jours
             request.put("loanTermFrequencyType", 0);    // 0 = Jours
 
-            // Configuration des intérêts (18% par an)
-            request.put("interestRatePerPeriod", 18);
+            // Configuration des intérêts (0%)
+            request.put("interestRatePerPeriod", 0);    // Taux à 0%
             request.put("interestType", 0);             // 0 = Declining Balance
             request.put("interestCalculationPeriodType", 1); // 1 = Same as repayment period
             request.put("amortizationType", 1);         // 1 = Equal installments
@@ -178,13 +178,8 @@ public class LoanServiceImpl implements LoanService {
             request.put("graceOnInterestCharged", 0);
             request.put("graceOnArrearsAgeing", 0);
 
-            // Configuration des frais
-            List<Map<String, Object>> charges = new ArrayList<>();
-            Map<String, Object> charge = new HashMap<>();
-            charge.put("chargeId", 2);
-            charge.put("amount", 5000000); // 5M XOF de frais pour atteindre le TAEG de 40%
-            charges.add(charge);
-            request.put("charges", charges);
+            // Pas de frais car TAEG = 0
+            request.put("charges", List.of());
 
             return objectMapper.writeValueAsString(request);
 

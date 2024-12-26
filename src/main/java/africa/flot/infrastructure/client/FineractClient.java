@@ -43,7 +43,7 @@ public interface FineractClient {
      * @return une réponse JSON asynchrone
      */
     @GET
-    @Path("/clients/external-id/{externalId}/accounts")
+    @Path("/clients/external-id/{externalId}")
     @Produces(MediaType.APPLICATION_JSON)
     Uni<Response> getClientByExternalId(@PathParam("externalId") String externalId);
 

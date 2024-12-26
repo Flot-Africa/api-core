@@ -4,6 +4,8 @@ import africa.flot.domain.model.exception.BusinessException;
 import africa.flot.domain.model.enums.VehicleStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -54,6 +56,9 @@ public class Vehicle extends PanacheEntityBase {
 
     @Column(name = "gps_tracker_id")
     public String gpsTrackerId;
+
+    @Column(name = "price", nullable = false)
+    public BigDecimal price;
 
     // Business methods
     public void assignToSubscriber(UUID subscriberId) {

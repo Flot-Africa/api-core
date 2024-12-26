@@ -7,11 +7,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Immutable;
 
 import java.time.Instant;
 
 @Entity
 @Table(name = "sessions")
+@Immutable
 @Setter
 @Getter
 public class Session extends PanacheEntityBase {
