@@ -38,6 +38,14 @@ public class Account extends PanacheEntityBase {
     @Column(name = "fineract_client_id")
     private Integer fineractClientId;
 
+    @Column(name = "pending_welcome_sms")
+    private boolean pendingWelcomeSms = false;
+
+    @Column(name = "sms_retry_count")
+    private int smsRetryCount = 0;
+
+    @Column(name = "temporary_password")
+    private String temporaryPassword;
     // Méthodes utilitaires
     public void deactivate() {
         this.isActive = false;

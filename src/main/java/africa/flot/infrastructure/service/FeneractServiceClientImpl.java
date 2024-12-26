@@ -129,7 +129,7 @@ public class FeneractServiceClientImpl {
                         // Persister le compte et envoyer un SMS de bienvenue
                         return account.<Account>persistAndFlush()
                                 .flatMap(savedAccount ->
-                                        sendWelcomeSms(clientUsername, generatedPassword, account)
+                                        sendWelcomeSms(clientUsername, generatedPassword, account, lead)
                                                 .map(smsResp -> Response.ok("Client + Prêt créés + SMS envoyé").build())
                                                 .onFailure().recoverWithItem(error -> {
                                                     LOG.error("Échec envoi SMS, mais Client + Prêt + Compte OK", error);
@@ -148,12 +148,34 @@ public class FeneractServiceClientImpl {
     }
 
 
-    private Uni<Response> sendWelcomeSms(String clientUsername, String password, Account account) {
+    private Uni<Response> sendWelcomeSms(String clientUsername, String password, Account account, Lead lead) {
         String message = String.format(
-                "Bienvenue chez Flot! Vos identifiants:\nIdentifiant: %s\nMot de passe: %s",
-                clientUsername, password
+                "👋 Bienvenue %s %s chez FLOT Mobility!\n\n" +
+                        "🔑 Vos identifiants FLOT:\n" +
+                        "Identifiant: %s\n" +
+                        "Mot de passe: %s\n\n" +
+                        "📱 Pour commencer votre expérience FLOT:\n" +
+                        "Téléchargez notre application:\n" +
+                        "https://flot.africa\n\n" +
+                        "⚠️ Pour votre sécurité, changez votre mot de passe à la première connexion\n" +
+                        "📞 Service client: 0779635252",
+                lead.getFirstName(),
+                lead.getLastName(),
+                clientUsername,
+                password
         );
-        return smsService.sendSMS(clientUsername, message, account);
+        return smsService.sendSMS(lead.getPhoneNumber(), message, account)
+                .onFailure().recoverWithItem(error -> {
+                    LOG.error("Échec envoi SMS initial", error);
+                    account.setPendingWelcomeSms(true);
+                    account.setTemporaryPassword(password);
+                    account.setSmsRetryCount(0);
+                    return account.<Account>persistAndFlush()
+                            .map(savedAccount -> Response.ok()
+                                    .entity("Client + Prêt + Compte créés, SMS en attente de réessai")
+                                    .build())
+                            .await().indefinitely();
+                });
     }
 
     private JsonObject createFineractRequest(CreateFeneratClientCommande cmd) {
