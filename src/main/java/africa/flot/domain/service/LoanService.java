@@ -6,6 +6,7 @@ import jakarta.ws.rs.core.Response;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 public interface LoanService {
     /**
@@ -16,25 +17,25 @@ public interface LoanService {
     /**
      * Récupère un client par External ID.
      */
-    Uni<Response> getClientByExternalId(String externalId);
+    Uni<Response> getClientByExternalId(UUID externalId);
 
     /**
      * Crée un prêt pour un client.
      */
-    Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount, String externalId);
+    Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount, UUID externalId);
 
     /**
      * Récupère les détails d'un prêt pour l'application mobile.
      */
-    Uni<JsonObject> getLoanDetailsForMobile(String externalId);
+    Uni<JsonObject> getLoanDetailsForMobile(UUID externalId);
 
     /**
      * Récupère les détails d'un prêt pour le back-office.
      */
-    Uni<JsonObject> getLoanDetailsForBackOffice(String externalId);
+    Uni<JsonObject> getLoanDetailsForBackOffice(UUID externalId);
 
     /**
      * Récupère l'historique des paiements d'un prêt.
      */
-    Uni<List<JsonObject>> getLoanRepaymentHistory(String externalId);
+    Uni<List<JsonObject>> getLoanRepaymentHistory(UUID externalId);
 }

@@ -18,6 +18,15 @@ public class ApiResponseBuilder {
         return Response.ok(response).build();
     }
 
+    public static Response success(Object data, Status status) {
+        LOG.info("ApiResponseBuilder.success: Building success response with data: " + data);
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", status);
+        response.put("data", data);
+        return Response.ok(response).build();
+    }
+
+
     public static Response success() {
         LOG.info("ApiResponseBuilder.success: Building success response without data");
         Map<String, String> response = new HashMap<>();

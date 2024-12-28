@@ -17,41 +17,51 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
 
 @Path("/auth")
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "Authentication", description = "API for managing user authentication")
 public class AuthResource {
 
     @Inject
     AuthService authService;
 
-    private static final Logger LOG = Logger.getLogger(ApiResponseBuilder.class);
-
+    private static final Logger AUDIT_LOG = Logger.getLogger("AUDIT");
+    private static final Logger ERROR_LOG = Logger.getLogger("ERROR");
+    private static final Logger BUSINESS_LOG = Logger.getLogger("BUSINESS");
 
     @POST
     @PermitAll
     @Path("/subscriber/login")
     @WithSession
+    @Operation(summary = "Authenticate a subscriber", description = "Allows a subscriber to log in using a phone number and password.")
+    @APIResponse(responseCode = "200", description = "Authentication successful", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "401", description = "Invalid credentials", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "400", description = "Invalid input", content = @Content(mediaType = MediaType.APPLICATION_JSON))
     public Uni<Response> loginSubscriber(SubscriberAuthCommand command) {
         if (command == null || command.phone() == null || command.password() == null) {
-            LOG.warn("loginSubscriber: Invalid command received, phone or password is null");
+            ERROR_LOG.warn("loginSubscriber: Invalid command received, phone or password is null");
             return Uni.createFrom().item(ApiResponseBuilder.failure("Invalid input: phone and password must not be null", Response.Status.BAD_REQUEST));
         }
-        LOG.info("loginSubscriber: Attempting login for subscriber with phone: " + command.phone());
+        BUSINESS_LOG.info("loginSubscriber: Attempting login for subscriber with phone: " + command.phone());
         return authService.authenticateSubscriber(command.phone(), command.password())
                 .onItem().transformToUni(authenticated -> {
                     if (authenticated) {
-                        LOG.info("loginSubscriber: Authentication successful for phone: " + command.phone());
+                        BUSINESS_LOG.info("loginSubscriber: Authentication successful for phone: " + command.phone());
                         return authService.generateSubscriberJWT(command.phone())
                                 .onItem().transform(jwtData -> {
-                                    LOG.info("loginSubscriber: JWT generated for subscriber with phone: " + command.phone());
+                                    AUDIT_LOG.info("loginSubscriber: JWT generated for subscriber with phone: " + command.phone());
                                     return ApiResponseBuilder.success(jwtData);
                                 });
                     } else {
-                        LOG.warn("loginSubscriber: Authentication failed for phone: " + command.phone());
+                        ERROR_LOG.warn("loginSubscriber: Authentication failed for phone: " + command.phone());
                         return Uni.createFrom().item(ApiResponseBuilder.failure("Invalid credentials", Response.Status.UNAUTHORIZED));
                     }
                 });
@@ -61,51 +71,60 @@ public class AuthResource {
     @PermitAll
     @Path("/admin/login")
     @WithSession
+    @Operation(summary = "Authenticate an admin", description = "Allows an admin to log in using an email, API key, and session ID.")
+    @APIResponse(responseCode = "200", description = "Authentication successful", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "401", description = "Invalid credentials or session", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "400", description = "Invalid input", content = @Content(mediaType = MediaType.APPLICATION_JSON))
     public Uni<Response> loginAdmin(AdminAuthCommand command) {
         if (command == null || command.email() == null || command.apiKey() == null || command.sessionId() == null) {
-            LOG.warn("loginAdmin: email, API Key, or session ID is null");
+            ERROR_LOG.warn("loginAdmin: email, API Key, or session ID is null");
             return Uni.createFrom().item(ApiResponseBuilder.failure("Invalid input: email, API Key, and session ID must not be null", Response.Status.BAD_REQUEST));
         }
 
+        BUSINESS_LOG.info("loginAdmin: Attempting admin login for email: " + command.email());
         return authService.authenticateAdminWithApiKeyAndSession(command.email(), command.apiKey(), command.sessionId())
                 .onItem().transform(jwtData -> {
                     if (jwtData != null) {
+                        AUDIT_LOG.info("loginAdmin: JWT generated for admin with email: " + command.email());
                         return ApiResponseBuilder.success(jwtData);
                     } else {
+                        ERROR_LOG.warn("loginAdmin: Authentication failed for email: " + command.email());
                         return ApiResponseBuilder.failure("Invalid credentials or session", Response.Status.UNAUTHORIZED);
                     }
                 });
     }
 
-
     @GET
     @Path("/me")
     @RolesAllowed({"SUBSCRIBER", "ADMIN"})
-    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Retrieve authenticated user info", description = "Returns the information of the currently authenticated user.")
+    @APIResponse(responseCode = "200", description = "User info retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "401", description = "User not authenticated", content = @Content(mediaType = MediaType.APPLICATION_JSON))
     public Uni<Response> me(@Context SecurityContext securityContext) {
         if (securityContext.getUserPrincipal() == null) {
-            LOG.warn("me: Aucun utilisateur authentifié trouvé");
-            return Uni.createFrom().item(ApiResponseBuilder.failure("Utilisateur non authentifié", Response.Status.UNAUTHORIZED));
+            ERROR_LOG.warn("me: No authenticated user found");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("User not authenticated", Response.Status.UNAUTHORIZED));
         }
 
         String usernameOrEmail = securityContext.getUserPrincipal().getName();
-        LOG.info("me: Récupération des informations pour l'utilisateur : " + usernameOrEmail);
+        BUSINESS_LOG.info("me: Fetching info for user: " + usernameOrEmail);
 
         String role = securityContext.isUserInRole("SUBSCRIBER") ? "SUBSCRIBER" :
                 securityContext.isUserInRole("ADMIN") ? "ADMIN" : null;
 
         if (role == null) {
-            LOG.warn("me: Rôle de l'utilisateur inconnu");
-            return Uni.createFrom().item(ApiResponseBuilder.failure("Rôle inconnu", Response.Status.FORBIDDEN));
+            ERROR_LOG.warn("me: User role unknown");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Unknown role", Response.Status.FORBIDDEN));
         }
 
         return authService.getAuthenticatedUser(usernameOrEmail, role)
                 .onItem().transform(user -> {
                     if (user != null) {
+                        AUDIT_LOG.info("me: User info retrieved successfully for: " + usernameOrEmail);
                         return ApiResponseBuilder.success(user);
                     } else {
-                        LOG.warn("me: Utilisateur non trouvé pour le nom d'utilisateur ou email : " + usernameOrEmail);
-                        return ApiResponseBuilder.failure("Utilisateur non trouvé", Response.Status.NOT_FOUND);
+                        ERROR_LOG.warn("me: User not found for username or email: " + usernameOrEmail);
+                        return ApiResponseBuilder.failure("User not found", Response.Status.NOT_FOUND);
                     }
                 });
     }
@@ -113,27 +132,31 @@ public class AuthResource {
     @POST
     @Path("/logout")
     @RolesAllowed({"SUBSCRIBER", "ADMIN"})
-    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Logout a user", description = "Invalidates the authentication token of the current user.")
+    @APIResponse(responseCode = "200", description = "Logout successful", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "400", description = "Token not found", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "401", description = "User not authenticated", content = @Content(mediaType = MediaType.APPLICATION_JSON))
     public Uni<Response> logout(@Context SecurityContext securityContext, @Context ContainerRequestContext requestContext) {
         if (securityContext.getUserPrincipal() == null) {
-            LOG.warn("logout: Aucun utilisateur authentifié trouvé");
-            return Uni.createFrom().item(ApiResponseBuilder.failure("Utilisateur non authentifié", Response.Status.UNAUTHORIZED));
+            ERROR_LOG.warn("logout: No authenticated user found");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("User not authenticated", Response.Status.UNAUTHORIZED));
         }
 
         String token = extractToken(requestContext);
         if (token == null) {
-            LOG.warn("logout: Aucun token trouvé");
-            return Uni.createFrom().item(ApiResponseBuilder.failure("Token non trouvé", Response.Status.BAD_REQUEST));
+            ERROR_LOG.warn("logout: No token found");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Token not found", Response.Status.BAD_REQUEST));
         }
 
+        BUSINESS_LOG.info("logout: Invalidating token for current user");
         return authService.invalidateToken(token)
                 .onItem().transform(isInvalidated -> {
                     if (isInvalidated) {
-                        LOG.info("logout: Token invalidé avec succès");
-                        return ApiResponseBuilder.success("Déconnexion réussie");
+                        AUDIT_LOG.info("logout: Token invalidated successfully");
+                        return ApiResponseBuilder.success("Logout successful");
                     } else {
-                        LOG.warn("logout: Échec de l'invalidation du token");
-                        return ApiResponseBuilder.failure("Échec de la déconnexion", Response.Status.INTERNAL_SERVER_ERROR);
+                        ERROR_LOG.warn("logout: Token invalidation failed");
+                        return ApiResponseBuilder.failure("Logout failed", Response.Status.INTERNAL_SERVER_ERROR);
                     }
                 });
     }
@@ -141,29 +164,30 @@ public class AuthResource {
     @POST
     @Path("/change-password")
     @RolesAllowed({"SUBSCRIBER", "ADMIN"})
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Change a user's password", description = "Allows a user to change their password.")
+    @APIResponse(responseCode = "200", description = "Password changed successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "400", description = "Invalid input", content = @Content(mediaType = MediaType.APPLICATION_JSON))
+    @APIResponse(responseCode = "401", description = "User not authenticated", content = @Content(mediaType = MediaType.APPLICATION_JSON))
     public Uni<Response> changePassword(@Context SecurityContext securityContext, ChangePasswordCommand command) {
         if (command == null || command.getOldPassword() == null || command.getNewPassword() == null) {
-            LOG.warn("changePassword: Données invalides fournies pour la modification du mot de passe");
-            return Uni.createFrom().item(ApiResponseBuilder.failure("Données invalides", Response.Status.BAD_REQUEST));
+            ERROR_LOG.warn("changePassword: Invalid input provided for password change");
+            return Uni.createFrom().item(ApiResponseBuilder.failure("Invalid input", Response.Status.BAD_REQUEST));
         }
 
         String username = securityContext.getUserPrincipal().getName();
-        LOG.info("changePassword: Tentative de modification du mot de passe pour l'utilisateur : " + username);
+        BUSINESS_LOG.info("changePassword: Attempting to change password for user: " + username);
 
         return authService.changePassword(username, command.getOldPassword(), command.getNewPassword())
                 .onItem().transform(response -> {
                     if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-                        LOG.info("changePassword: Mot de passe modifié avec succès pour " + username);
+                        AUDIT_LOG.info("changePassword: Password changed successfully for " + username);
                     } else {
-                        LOG.warn("changePassword: Échec de la modification du mot de passe pour " + username);
+                        ERROR_LOG.warn("changePassword: Failed to change password for " + username);
                     }
                     return response;
                 });
     }
 
-    // Méthode pour extraire le token depuis ContainerRequestContext
     private String extractToken(ContainerRequestContext requestContext) {
         String authHeader = requestContext.getHeaderString("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {

@@ -1,0 +1,62 @@
+name: Create Release
+on:
+  push:
+    tags:
+      - 'v*'  # Déclenche sur les tags commençant par 'v'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Nécessaire pour créer des releases
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Historique complet pour les tags
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      # Construire le JAR standard
+      - name: Build JAR
+        run: mvn clean package -DskipTests
+
+      # Extraire la version du tag
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version extraite: $VERSION"
+
+      # Générer les notes de release à partir des commits
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # Si pas de tag précédent, utiliser tous les commits
+            git log --pretty=format:"- %s" > RELEASE_NOTES.md
+          else
+            # Sinon, utiliser les commits depuis le dernier tag
+            git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD > RELEASE_NOTES.md
+          fi
+
+      # Créer la release
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.get_version.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          files: |
+            target/*.jar
+            target/quarkus-app/*.jar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

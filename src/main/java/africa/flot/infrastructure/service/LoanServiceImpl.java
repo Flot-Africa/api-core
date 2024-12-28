@@ -19,10 +19,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Executor;
 
 /**
@@ -75,10 +72,10 @@ public class LoanServiceImpl implements LoanService {
     }
 
     @Override
-    public Uni<Response> getClientByExternalId(String externalId) {
+    public Uni<Response> getClientByExternalId(UUID externalId) {
         BUSINESS_LOG.debugf("Récupération du client: {}", externalId);
 
-        return Uni.createFrom().item(externalId)
+        return Uni.createFrom().item(String.valueOf(externalId))
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
                 .flatMap(fineractClient::getClientByExternalId)
                 .emitOn(vertxExecutor)
@@ -94,10 +91,10 @@ public class LoanServiceImpl implements LoanService {
     }
 
     @Override
-    public Uni<JsonObject> getLoanDetailsForMobile(String externalId) {
+    public Uni<JsonObject> getLoanDetailsForMobile(UUID externalId) {
         BUSINESS_LOG.debugf("Récupération des détails du prêt pour mobile: {}", externalId);
 
-        return fineractClient.getLoanByExternalId(externalId, "all", "guarantors,futureSchedule")
+        return fineractClient.getLoanByExternalId(String.valueOf(externalId), "all", "guarantors,futureSchedule")
                 .onItem().transform(Unchecked.function(response -> {
                     validateResponse(response, "Erreur lors de la récupération des détails du prêt pour l'application mobile.");
 
@@ -155,10 +152,10 @@ public class LoanServiceImpl implements LoanService {
     }
 
     @Override
-    public Uni<JsonObject> getLoanDetailsForBackOffice(String externalId) {
+    public Uni<JsonObject> getLoanDetailsForBackOffice(UUID externalId) {
         BUSINESS_LOG.debugf("Récupération des détails du prêt pour back-office: {}", externalId);
 
-        return fineractClient.getLoanByExternalId(externalId, "all", "guarantors,futureSchedule")
+        return fineractClient.getLoanByExternalId(String.valueOf(externalId), "all", "guarantors,futureSchedule")
                 .onItem().transform(Unchecked.function(response -> {
                     validateResponse(response, "Erreur lors de la récupération des détails du prêt pour le back-office.");
 
@@ -222,10 +219,10 @@ public class LoanServiceImpl implements LoanService {
     }
 
     @Override
-    public Uni<List<JsonObject>> getLoanRepaymentHistory(String externalId) {
+    public Uni<List<JsonObject>> getLoanRepaymentHistory(UUID externalId) {
         BUSINESS_LOG.debugf("Récupération de l'historique des paiements: {}", externalId);
 
-        return fineractClient.getLoanByExternalId(externalId, "all", "guarantors,futureSchedule")
+        return fineractClient.getLoanByExternalId(String.valueOf(externalId), "all", "guarantors,futureSchedule")
                 .onItem().transform(Unchecked.function(response -> {
                     validateResponse(response, "Erreur lors de la récupération de l'historique des paiements.");
 
@@ -270,7 +267,7 @@ public class LoanServiceImpl implements LoanService {
     }
 
     @Override
-    public Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount, String externalId) {
+    public Uni<Response> createLoan(Integer clientId, Integer productId, BigDecimal amount, UUID externalId) {
         BUSINESS_LOG.infof("Création d'un prêt - Client: {}, Produit: {}, Montant: {}",
                 clientId, productId, amount);
 
@@ -285,7 +282,7 @@ public class LoanServiceImpl implements LoanService {
                     }
                     JsonNode loanProduct = response.readEntity(JsonNode.class);
                     BUSINESS_LOG.debugf("Produit de prêt récupéré, création de la requête");
-                    return createLoanRequest(clientId, productId, amount, loanProduct, externalId);
+                    return createLoanRequest(clientId, productId, amount, loanProduct, String.valueOf(externalId));
                 }))
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
                 .onItem().transformToUni(fineractClient::createLoan)

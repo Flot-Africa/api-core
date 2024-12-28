@@ -15,8 +15,10 @@ import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.logging.Logger;
 
 import java.util.List;
+import java.util.UUID;
 
 @Path("/loans")
 @Produces(MediaType.APPLICATION_JSON)
@@ -24,14 +26,18 @@ import java.util.List;
 @Tag(name = "Loans", description = "APIs for managing loans for mobile app and back office")
 public class LoanResource {
 
+    private static final Logger AUDIT_LOG = Logger.getLogger("AUDIT");
+    private static final Logger ERROR_LOG = Logger.getLogger("ERROR");
+    private static final Logger BUSINESS_LOG = Logger.getLogger("BUSINESS");
+
     @Inject
     LoanService loanService;
 
     /**
-     * Endpoint pour récupérer les détails simplifiés pour l'application mobile.
+     * Endpoint to retrieve simplified loan details for mobile users.
      */
     @GET
-    @Path("/mobile/{externalId}")
+    @Path("/mobile/{leadId}")
     @Operation(summary = "Get loan details for mobile", description = "Retrieve simplified loan details for mobile users.")
     @APIResponse(
             responseCode = "200",
@@ -39,25 +45,34 @@ public class LoanResource {
             content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = JsonObject.class))
     )
     @APIResponse(responseCode = "404", description = "Loan not found")
+    @APIResponse(responseCode = "500", description = "Unexpected error")
     @RolesAllowed({"SUBSCRIBER", "ADMIN"})
-    public Uni<Response> getLoanDetailsForMobile(@PathParam("externalId") String externalId) {
+    public Uni<Response> getLoanDetailsForMobile(@PathParam("leadId") UUID externalId) {
+        BUSINESS_LOG.info("Fetching loan details for mobile user. Loan ID: " + externalId);
         return loanService.getLoanDetailsForMobile(externalId)
                 .map(ApiResponseBuilder::success)
-                .onFailure(NotFoundException.class).recoverWithItem(throwable -> ApiResponseBuilder.failure(
-                        throwable.getMessage(),
-                        Response.Status.NOT_FOUND
-                ))
-                .onFailure().recoverWithItem(throwable -> ApiResponseBuilder.failure(
-                        "Une erreur inattendue s'est produite : " + throwable.getMessage(),
-                        Response.Status.INTERNAL_SERVER_ERROR
-                ));
+                .onItem().invoke(() -> AUDIT_LOG.info("Loan details retrieved successfully for mobile user. Loan ID: " + externalId))
+                .onFailure(NotFoundException.class).recoverWithItem(throwable -> {
+                    ERROR_LOG.warn("Loan not found for mobile user. Loan ID: " + externalId, throwable);
+                    return ApiResponseBuilder.failure(
+                            throwable.getMessage(),
+                            Response.Status.NOT_FOUND
+                    );
+                })
+                .onFailure().recoverWithItem(throwable -> {
+                    ERROR_LOG.error("Unexpected error while fetching loan details for mobile user. Loan ID: " + externalId, throwable);
+                    return ApiResponseBuilder.failure(
+                            "An unexpected error occurred: " + throwable.getMessage(),
+                            Response.Status.INTERNAL_SERVER_ERROR
+                    );
+                });
     }
 
     /**
-     * Endpoint pour récupérer les détails avancés pour le back-office.
+     * Endpoint to retrieve detailed loan information for back office users.
      */
     @GET
-    @Path("/backoffice/{externalId}")
+    @Path("/backoffice/{leadId}")
     @RolesAllowed({"ADMIN"})
     @Operation(summary = "Get loan details for back office", description = "Retrieve detailed loan information for back office users.")
     @APIResponse(
@@ -66,24 +81,33 @@ public class LoanResource {
             content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = JsonObject.class))
     )
     @APIResponse(responseCode = "404", description = "Loan not found")
-    public Uni<Response> getLoanDetailsForBackOffice(@PathParam("externalId") String externalId) {
+    @APIResponse(responseCode = "500", description = "Unexpected error")
+    public Uni<Response> getLoanDetailsForBackOffice(@PathParam("leadId") UUID externalId) {
+        BUSINESS_LOG.info("Fetching loan details for back office. Loan ID: " + externalId);
         return loanService.getLoanDetailsForBackOffice(externalId)
                 .map(ApiResponseBuilder::success)
-                .onFailure(NotFoundException.class).recoverWithItem(throwable -> ApiResponseBuilder.failure(
-                        throwable.getMessage(),
-                        Response.Status.NOT_FOUND
-                ))
-                .onFailure().recoverWithItem(throwable -> ApiResponseBuilder.failure(
-                        "Une erreur inattendue s'est produite : " + throwable.getMessage(),
-                        Response.Status.INTERNAL_SERVER_ERROR
-                ));
+                .onItem().invoke(() -> AUDIT_LOG.info("Loan details retrieved successfully for back office. Loan ID: " + externalId))
+                .onFailure(NotFoundException.class).recoverWithItem(throwable -> {
+                    ERROR_LOG.warn("Loan not found for back office. Loan ID: " + externalId, throwable);
+                    return ApiResponseBuilder.failure(
+                            throwable.getMessage(),
+                            Response.Status.NOT_FOUND
+                    );
+                })
+                .onFailure().recoverWithItem(throwable -> {
+                    ERROR_LOG.error("Unexpected error while fetching loan details for back office. Loan ID: " + externalId, throwable);
+                    return ApiResponseBuilder.failure(
+                            "An unexpected error occurred: " + throwable.getMessage(),
+                            Response.Status.INTERNAL_SERVER_ERROR
+                    );
+                });
     }
 
     /**
-     * Endpoint pour récupérer l'historique des paiements d'un prêt.
+     * Endpoint to retrieve loan repayment history.
      */
     @GET
-    @Path("/{externalId}/repayments")
+    @Path("/{leadId}/repayments")
     @RolesAllowed({"SUBSCRIBER", "ADMIN"})
     @Operation(summary = "Get loan repayment history", description = "Retrieve repayment history for a given loan.")
     @APIResponse(
@@ -92,16 +116,25 @@ public class LoanResource {
             content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(type = SchemaType.ARRAY, implementation = JsonObject.class))
     )
     @APIResponse(responseCode = "404", description = "Loan not found")
-    public Uni<Response> getLoanRepaymentHistory(@PathParam("externalId") String externalId) {
+    @APIResponse(responseCode = "500", description = "Unexpected error")
+    public Uni<Response> getLoanRepaymentHistory(@PathParam("leadId") UUID externalId) {
+        BUSINESS_LOG.info("Fetching repayment history for loan. Loan ID: " + externalId);
         return loanService.getLoanRepaymentHistory(externalId)
                 .map(ApiResponseBuilder::success)
-                .onFailure(NotFoundException.class).recoverWithItem(throwable -> ApiResponseBuilder.failure(
-                        throwable.getMessage(),
-                        Response.Status.NOT_FOUND
-                ))
-                .onFailure().recoverWithItem(throwable -> ApiResponseBuilder.failure(
-                        "Une erreur inattendue s'est produite : " + throwable.getMessage(),
-                        Response.Status.INTERNAL_SERVER_ERROR
-                ));
+                .onItem().invoke(() -> AUDIT_LOG.info("Repayment history retrieved successfully. Loan ID: " + externalId))
+                .onFailure(NotFoundException.class).recoverWithItem(throwable -> {
+                    ERROR_LOG.warn("Loan not found while fetching repayment history. Loan ID: " + externalId, throwable);
+                    return ApiResponseBuilder.failure(
+                            throwable.getMessage(),
+                            Response.Status.NOT_FOUND
+                    );
+                })
+                .onFailure().recoverWithItem(throwable -> {
+                    ERROR_LOG.error("Unexpected error while fetching repayment history. Loan ID: " + externalId, throwable);
+                    return ApiResponseBuilder.failure(
+                            "An unexpected error occurred: " + throwable.getMessage(),
+                            Response.Status.INTERNAL_SERVER_ERROR
+                    );
+                });
     }
 }
