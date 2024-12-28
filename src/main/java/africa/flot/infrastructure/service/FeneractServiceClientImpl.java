@@ -100,7 +100,7 @@ public class FeneractServiceClientImpl {
                                         }
 
                                         // Créer un prêt pour le client
-                                        return loanService.createLoan(clientId, commande.getProduitId(), vehicle.price, String.valueOf(lead.getId()))
+                                        return loanService.createLoan(clientId, commande.getProduitId(), vehicle.price, lead.getId())
                                                 .map(loanResp -> Map.of(
                                                         "loanResponse", loanResp,
                                                         "lead", lead,
