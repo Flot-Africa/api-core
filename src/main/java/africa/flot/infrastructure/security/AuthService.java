@@ -66,7 +66,7 @@ public class AuthService {
                 .onItem().transform(account -> {
                     if (account != null && account.isActive) {
                         boolean matches = BcryptUtil.matches(password, account.passwordHash);
-                        LOG.info("Tentative d'authentification abonné pour " + username + ": " + (matches ? "réussie" : "échouée"));
+                        LOG.info("Tentative d'authentif1ication abonné pour " + username + ": " + (matches ? "réussie" : "échouée"));
                         return matches;
                     }
                     LOG.warn("Aucun compte actif trouvé pour l'utilisateur : " + username);

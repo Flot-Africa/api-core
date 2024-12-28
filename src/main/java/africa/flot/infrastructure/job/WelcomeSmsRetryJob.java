@@ -26,7 +26,7 @@ public class WelcomeSmsRetryJob {
     @Inject
     JetfySmsService smsService;
 
-    @Scheduled(every = "5m")
+    @Scheduled(every = "20m")
     @WithTransaction
     public Uni<Void> processFailedWelcomeSms() {
         return findPendingAccounts()
