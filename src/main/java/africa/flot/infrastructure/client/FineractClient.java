@@ -23,6 +23,7 @@ import io.smallrye.mutiny.Uni;
 @RegisterRestClient(configKey = "fineract-api")
 @ClientHeaderParam(name = "fineract-platform-tenantid", value = "default")
 @RegisterProvider(FineractAuthenticationProvider.class)
+@RegisterProvider(FineractLoggingFilter.class)
 public interface FineractClient {
 
     /**
@@ -71,11 +72,12 @@ public interface FineractClient {
     @Consumes(MediaType.APPLICATION_JSON)
     Uni<Response> createClient(JsonObject requestBody);
 
-    @GET
-    @Path("/loans/{externalId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    Uni<Response> getLoanByExternalId(@PathParam("externalId") String externalId,
-                                      @QueryParam("associations") String associations,
-                                      @QueryParam("exclude") String exclude);
 
+    @GET
+    @Path("/loans/external-id/{externalId}")
+    Uni<Response> getLoanByExternalId(
+            @PathParam("externalId") String externalId,
+            @QueryParam("associations") String associations,
+            @QueryParam("exclude") @Encoded String exclude  // Ajout de @Encoded pour éviter le double encodage
+    );
 }
