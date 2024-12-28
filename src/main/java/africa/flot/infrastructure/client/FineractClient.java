@@ -70,4 +70,12 @@ public interface FineractClient {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     Uni<Response> createClient(JsonObject requestBody);
+
+    @GET
+    @Path("/loans/{externalId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    Uni<Response> getLoanByExternalId(@PathParam("externalId") String externalId,
+                                      @QueryParam("associations") String associations,
+                                      @QueryParam("exclude") String exclude);
+
 }

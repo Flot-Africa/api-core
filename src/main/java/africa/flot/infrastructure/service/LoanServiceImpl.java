@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.smallrye.mutiny.unchecked.Unchecked;
+import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -84,6 +85,92 @@ public class LoanServiceImpl implements LoanService {
                 .flatMap(fineractClient::getClientByExternalId)
                 .emitOn(vertxExecutor);
     }
+
+    @Override
+    public Uni<JsonObject> getLoanDetailsForMobile(String externalId) {
+        return fineractClient.getLoanByExternalId(externalId, "all", "guarantors,futureSchedule")
+                .onItem().transform(Unchecked.function(response -> {
+                    validateResponse(response, "Erreur lors de la récupération des détails du prêt pour l'application mobile.");
+                    JsonNode loanData = response.readEntity(JsonNode.class);
+
+                    // Extraire les données simplifiées
+                    Map<String, Object> mobileData = new HashMap<>();
+                    mobileData.put("loanProgress", calculateLoanProgress(loanData));
+                    mobileData.put("amountRemaining", loanData.get("repaymentSchedule").get("totalOutstanding").asText());
+                    mobileData.put("nextDueDate", loanData.get("repaymentSchedule").get("periods").get(0).get("dueDate").asText());
+                    mobileData.put("principal", loanData.get("principal").asText());
+                    mobileData.put("currency", loanData.get("currency").get("code").asText());
+
+                    return new JsonObject(mobileData);
+                }));
+    }
+
+    @Override
+    public Uni<JsonObject> getLoanDetailsForBackOffice(String externalId) {
+        return fineractClient.getLoanByExternalId(externalId, "all", "guarantors,futureSchedule")
+                .onItem().transform(Unchecked.function(response -> {
+                    validateResponse(response, "Erreur lors de la récupération des détails du prêt pour le back-office.");
+                    JsonNode loanData = response.readEntity(JsonNode.class);
+
+                    // Extraire les données pour le back-office
+                    Map<String, Object> backOfficeData = new HashMap<>();
+                    backOfficeData.put("loanId", loanData.get("id").asText());
+                    backOfficeData.put("clientName", loanData.get("clientName").asText());
+                    backOfficeData.put("status", loanData.get("status").get("value").asText());
+                    backOfficeData.put("totalPrincipalPaid", loanData.get("repaymentSchedule").get("totalPrincipalPaid").asText());
+                    backOfficeData.put("totalOutstanding", loanData.get("repaymentSchedule").get("totalOutstanding").asText());
+                    backOfficeData.put("arrears", loanData.get("summary").get("totalOverdue").asText());
+                    backOfficeData.put("nextInstallment", loanData.get("repaymentSchedule").get("periods").get(0));
+
+                    return new JsonObject(backOfficeData);
+                }));
+    }
+
+    @Override
+    public Uni<List<JsonObject>> getLoanRepaymentHistory(String externalId) {
+        return fineractClient.getLoanByExternalId(externalId, "all", "guarantors,futureSchedule")
+                .onItem().transform(Unchecked.function(response -> {
+                    validateResponse(response, "Erreur lors de la récupération de l'historique des paiements.");
+                    JsonNode loanData = response.readEntity(JsonNode.class);
+
+                    // Construire l'historique des paiements
+                    List<JsonObject> repaymentHistory = new ArrayList<>();
+                    loanData.get("repaymentSchedule").get("periods").forEach(period -> {
+                        Map<String, Object> repayment = new HashMap<>();
+                        repayment.put("period", period.get("period").asInt());
+                        repayment.put("dueDate", period.get("dueDate").asText());
+                        repayment.put("principalDue", period.get("principalDue").asText());
+                        repayment.put("principalPaid", period.get("principalPaid").asText());
+                        repayment.put("principalOutstanding", period.get("principalOutstanding").asText());
+                        repaymentHistory.add(new JsonObject(repayment));
+                    });
+
+                    return repaymentHistory;
+                }));
+    }
+
+    /**
+     * Valide la réponse de l'API.
+     *
+     * @param response La réponse de l'API.
+     * @param errorMessage Message d'erreur à afficher en cas de statut non valide.
+     */
+    private void validateResponse(Response response, String errorMessage) {
+        if (response.getStatus() != Response.Status.OK.getStatusCode()) {
+            LOG.errorf("%s (Status: %d)", errorMessage, response.getStatus());
+            throw new BusinessException(errorMessage);
+        }
+    }
+
+    /**
+     * Calcule le pourcentage d'avancement du prêt.
+     */
+    private double calculateLoanProgress(JsonNode loanData) {
+        double totalPaid = loanData.get("repaymentSchedule").get("totalPrincipalPaid").asDouble();
+        double totalExpected = loanData.get("repaymentSchedule").get("totalPrincipalExpected").asDouble();
+        return (totalPaid / totalExpected) * 100;
+    }
+
 
     /**
      * Crée un prêt pour le client dans Fineract :
