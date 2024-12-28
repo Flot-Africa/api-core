@@ -22,9 +22,12 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
-      # Construire le JAR standard
+      # Construire le JAR standard sans Docker
       - name: Build JAR
-        run: mvn clean package -DskipTests
+        run: |
+          mvn clean package -DskipTests \
+          -Dquarkus.container-image.build=false \
+          -Dquarkus.container-image.push=false
 
       # Extraire la version du tag
       - name: Get version from tag
@@ -40,11 +43,13 @@ jobs:
         run: |
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -z "$PREVIOUS_TAG" ]; then
-            # Si pas de tag précédent, utiliser tous les commits
-            git log --pretty=format:"- %s" > RELEASE_NOTES.md
+            echo "## Première release" > RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            git log --pretty=format:"- %s" >> RELEASE_NOTES.md
           else
-            # Sinon, utiliser les commits depuis le dernier tag
-            git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD > RELEASE_NOTES.md
+            echo "## Changements depuis $PREVIOUS_TAG" > RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD >> RELEASE_NOTES.md
           fi
 
       # Créer la release
@@ -56,7 +61,9 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            target/*.jar
-            target/quarkus-app/*.jar
+            target/quarkus-app/lib/
+            target/quarkus-app/app/
+            target/quarkus-app/quarkus/
+            target/quarkus-app/quarkus-run.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
