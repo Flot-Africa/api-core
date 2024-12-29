@@ -26,7 +26,7 @@ public class MinioService {
     io.vertx.mutiny.core.Vertx vertx;
 
     public Uni<Path> getFile(String bucketName, String objectName, String outputPath) {
-        return vertx.executeBlocking(Uni.createFrom().item(() -> {
+        return vertx.executeBlocking(Uni.createFrom().item(Unchecked.supplier(() -> {
             try (InputStream fileStream = minioClient.getObject(
                     GetObjectArgs.builder()
                             .bucket(bucketName)
@@ -41,6 +41,6 @@ public class MinioService {
                 LOG.errorf("Erreur lors de la récupération du fichier %s depuis Minio : %s", objectName, e.getMessage());
                 throw new RuntimeException("Erreur lors de la récupération du fichier depuis Minio : " + e.getMessage(), e);
             }
-        }));
+        })));
     }
 }

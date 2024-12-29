@@ -8,10 +8,17 @@ import africa.flot.infrastructure.repository.AccountRepository;
 import africa.flot.infrastructure.repository.SessionRepository;
 import africa.flot.infrastructure.repository.TokenBlacklistRepository;
 import africa.flot.infrastructure.repository.impl.UserRepositoryImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MinioClient;
+import io.minio.http.Method;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
+import io.quarkus.redis.client.reactive.ReactiveRedisClient;
 import io.smallrye.jwt.build.Jwt;
 import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.pgclient.PgPool;
+import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
@@ -19,10 +26,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @ApplicationScoped
 public class AuthService {
@@ -55,6 +59,107 @@ public class AuthService {
 
     @ConfigProperty(name = "auth.admin.key")
     String expectedApiKey;
+
+    @Inject
+    ReactiveRedisClient redisClient;
+
+    @Inject
+    MinioClient minioClient;
+
+    @Inject
+    PgPool client;
+
+    private static final String USER_CACHE_KEY = "user:info:";
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    public Uni<Map<String, Object>> getUserInfo(String identifier, String role) {
+        String cacheKey = USER_CACHE_KEY + role + ":" + identifier;
+
+        return redisClient.get(cacheKey)
+                .onItem().transformToUni(cached -> {
+                    if (cached != null) {
+                        try {
+                            LOG.info("Cache hit for user: " + identifier);
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> result = objectMapper.readValue(cached.toString(), Map.class);
+                            return Uni.createFrom().item(result);
+                        } catch (Exception e) {
+                            LOG.error("Error deserializing cached user info", e);
+                        }
+                    }
+                    return fetchAndCacheUserInfo(identifier, role, cacheKey);
+                });
+    }
+
+
+    private Uni<Map<String, Object>> fetchAndCacheUserInfo(String identifier, String role, String cacheKey) {
+        return getAuthenticatedUser(identifier, role)
+                .onItem().transformToUni(user -> {
+                    if (user == null) {
+                        return Uni.createFrom().nullItem();
+                    }
+
+                    if (role.equals("ADMIN")) {
+                        Map<String, Object> adminData = Map.of("user", user, "photoUrl", null);
+                        return cacheAndReturn(adminData, cacheKey);
+                    }
+
+                    Lead lead = (Lead) user;
+                    return client.preparedQuery(
+                                    "SELECT a.name FROM attachments a " +
+                                            "JOIN attachment_lists al ON a.attachment_lists_id = al.id " +
+                                            "WHERE al.slug = 'PHOTO' AND a.key_form_id = $1")
+                            .execute(Tuple.of(lead.getKeyForm()))
+                            .onItem().transformToUni(rows -> {
+                                if (!rows.iterator().hasNext()) {
+                                    Map<String, Object> noPhotoData = Map.of("user", user, "photoUrl", null);
+                                    return cacheAndReturn(noPhotoData, cacheKey);
+                                }
+
+                                try {
+                                    String fileName = rows.iterator().next().getString("name");
+                                    String photoUrl = minioClient.getPresignedObjectUrl(
+                                            GetPresignedObjectUrlArgs.builder()
+                                                    .bucket("flotkyb")
+                                                    .object(fileName)
+                                                    .method(Method.GET)
+                                                    .expiry((int) jwtDuration.getSeconds())
+                                                    .build()
+                                    );
+                                    Map<String, Object> photoData = Map.of("user", user, "photoUrl", photoUrl);
+                                    return cacheAndReturn(photoData, cacheKey);
+                                } catch (Exception e) {
+                                    LOG.error("Error generating presigned URL", e);
+                                    Map<String, Object> errorData = Map.of("user", user, "photoUrl", null);
+                                    return cacheAndReturn(errorData, cacheKey);
+                                }
+                            });
+                });
+    }
+
+    private Uni<Map<String, Object>> cacheAndReturn(Map<String, Object> data, String cacheKey) {
+        try {
+            String jsonData = objectMapper.writeValueAsString(data);
+            return redisClient.setex(cacheKey, String.valueOf(jwtDuration.getSeconds()), jsonData)
+                    .onItem().transform(result -> {
+                        LOG.info("User info cached successfully");
+                        return data;
+                    })
+                    .onFailure().recoverWithItem(e -> {
+                        LOG.error("Failed to cache user info", e);
+                        return data;
+                    });
+        } catch (Exception e) {
+            LOG.error("Error serializing user info", e);
+            return Uni.createFrom().item(data);
+        }
+    }
+
+    public Uni<Void> invalidateUserCache(String identifier, String role) {
+        String cacheKey = USER_CACHE_KEY + role + ":" + identifier;
+        return redisClient.del(List.of(cacheKey))
+                .onItem().transform(result -> null);
+    }
 
     public Uni<Boolean> authenticateSubscriber(String username, String password) {
         if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
@@ -243,7 +348,6 @@ public class AuthService {
     }
 
 
-
     @WithTransaction
     public Uni<Response> changePassword(String username, String oldPassword, String newPassword) {
         if (username == null || oldPassword == null || newPassword == null || oldPassword.equals(newPassword)) {
@@ -270,7 +374,12 @@ public class AuthService {
                                                 oldPasswordEntity.account = account;
                                                 oldPasswordEntity.passwordHash = newHash;
                                                 return oldPasswordRepository.saveOldPassword(oldPasswordEntity)
-                                                        .replaceWith(Response.ok("Mot de passe mis à jour avec succès").build());
+                                                        .onItem().transformToUni(saved ->
+                                                                invalidateUserCache(username, "SUBSCRIBER")
+                                                                        .onItem().transform(v ->
+                                                                                Response.ok("Mot de passe mis à jour avec succès").build()
+                                                                        )
+                                                        );
                                             });
                                 });
                     } else {
@@ -318,6 +427,7 @@ public class AuthService {
                             });
                 });
     }
+
     public Uni<Boolean> isLaravelSessionActive(String sessionId) {
         if (sessionId == null || sessionId.isEmpty()) {
             LOG.warn("isLaravelSessionActive: Session ID is missing");
