@@ -3,10 +3,15 @@ package africa.flot.infrastructure.interfaces.rest;
 import africa.flot.application.auth.AdminAuthCommand;
 import africa.flot.application.auth.SubscriberAuthCommand;
 import africa.flot.application.dto.command.ChangePasswordCommand;
+import africa.flot.domain.model.Lead;
 import africa.flot.infrastructure.security.AuthService;
 import africa.flot.infrastructure.util.ApiResponseBuilder;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MinioClient;
+import io.minio.http.Method;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,11 +22,15 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
+
+import java.time.Duration;
+import java.util.Map;
 
 @Path("/auth")
 @ApplicationScoped
@@ -33,9 +42,18 @@ public class AuthResource {
     @Inject
     AuthService authService;
 
+    @Inject
+    MinioClient minioClient;
+
+    @Inject
+    io.vertx.mutiny.pgclient.PgPool client;
+
     private static final Logger AUDIT_LOG = Logger.getLogger("AUDIT");
     private static final Logger ERROR_LOG = Logger.getLogger("ERROR");
     private static final Logger BUSINESS_LOG = Logger.getLogger("BUSINESS");
+
+    @ConfigProperty(name = "jwt.duration", defaultValue = "PT1H")
+    Duration jwtDuration;
 
     @POST
     @PermitAll
@@ -94,10 +112,11 @@ public class AuthResource {
                 });
     }
 
+
     @GET
     @Path("/me")
     @RolesAllowed({"SUBSCRIBER", "ADMIN"})
-    @Operation(summary = "Retrieve authenticated user info", description = "Returns the information of the currently authenticated user.")
+    @Operation(summary = "Retrieve authenticated user info", description = "Returns the information of the currently authenticated user, including their photo.")
     @APIResponse(responseCode = "200", description = "User info retrieved successfully", content = @Content(mediaType = MediaType.APPLICATION_JSON))
     @APIResponse(responseCode = "401", description = "User not authenticated", content = @Content(mediaType = MediaType.APPLICATION_JSON))
     public Uni<Response> me(@Context SecurityContext securityContext) {
@@ -107,8 +126,6 @@ public class AuthResource {
         }
 
         String usernameOrEmail = securityContext.getUserPrincipal().getName();
-        BUSINESS_LOG.info("me: Fetching info for user: " + usernameOrEmail);
-
         String role = securityContext.isUserInRole("SUBSCRIBER") ? "SUBSCRIBER" :
                 securityContext.isUserInRole("ADMIN") ? "ADMIN" : null;
 
@@ -117,15 +134,18 @@ public class AuthResource {
             return Uni.createFrom().item(ApiResponseBuilder.failure("Unknown role", Response.Status.FORBIDDEN));
         }
 
-        return authService.getAuthenticatedUser(usernameOrEmail, role)
-                .onItem().transform(user -> {
-                    if (user != null) {
-                        AUDIT_LOG.info("me: User info retrieved successfully for: " + usernameOrEmail);
-                        return ApiResponseBuilder.success(user);
-                    } else {
-                        ERROR_LOG.warn("me: User not found for username or email: " + usernameOrEmail);
+        return authService.getUserInfo(usernameOrEmail, role)
+                .onItem().transform(userInfo -> {
+                    if (userInfo == null) {
+                        ERROR_LOG.warn("me: User not found for identifier: " + usernameOrEmail);
                         return ApiResponseBuilder.failure("User not found", Response.Status.NOT_FOUND);
                     }
+                    AUDIT_LOG.info("me: User info retrieved successfully for: " + usernameOrEmail);
+                    return ApiResponseBuilder.success(userInfo);
+                })
+                .onFailure().recoverWithItem(throwable -> {
+                    ERROR_LOG.error("me: Error retrieving user info: " + throwable.getMessage());
+                    return ApiResponseBuilder.failure("Error retrieving user info", Response.Status.INTERNAL_SERVER_ERROR);
                 });
     }
 
