@@ -3,6 +3,7 @@ package africa.flot.infrastructure.service;
 import africa.flot.application.dto.command.CreateFeneratClientCommande;
 import africa.flot.application.dto.command.InitLoanCommande;
 import africa.flot.application.mappers.LeadToFeneratClientMapper;
+import africa.flot.application.ports.LoanApprovalService;
 import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Lead;
 import africa.flot.domain.model.Vehicle;
@@ -10,11 +11,13 @@ import africa.flot.domain.model.exception.BusinessException;
 import africa.flot.domain.service.LoanService;
 import africa.flot.infrastructure.client.FineractClient;
 import africa.flot.infrastructure.util.PasswordGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.panache.common.Parameters;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.core.json.JsonObject;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -44,6 +47,9 @@ public class FeneractServiceClientImpl {
 
     @Inject
     JetfySmsService smsService;
+
+    @Inject
+    LoanApprovalService loanApprovalService;
 
     @PostConstruct
     void init() {
@@ -108,42 +114,52 @@ public class FeneractServiceClientImpl {
                                                 ));
                                     });
                         }))
-                .flatMap(data -> {
+                .flatMap(Unchecked.function(data -> {
                     Response loanResp = (Response) data.get("loanResponse");
                     Lead lead = (Lead) data.get("lead");
                     Integer clientId = (Integer) data.get("clientId");
-
+                    String resourceExternalId = String.valueOf(lead.getId());
                     // Vérifier si le prêt a été créé avec succès
                     if (loanResp.getStatus() == Response.Status.OK.getStatusCode()) {
-                        // Générer un mot de passe pour le compte utilisateur
-                        String generatedPassword = PasswordGenerator.generate();
-                        String clientUsername = formatPhoneNumber(lead.getPhoneNumber());
+                        // Approuver le prêt nouvellement créé
+                        return loanApprovalService.approveLoan(String.valueOf(resourceExternalId))
+                                .onItem().transformToUni(approvalResp -> {
+                                    if (approvalResp.getStatus() != Response.Status.OK.getStatusCode()) {
+                                        LOG.error("Échec de l'approbation du prêt");
+                                        return Uni.createFrom().failure(
+                                                new BusinessException("Échec de l'approbation du prêt")
+                                        );
+                                    }
+                                    LOG.info("Prêt approuvé avec succès");
+                                    // Continuer avec la création du compte et l'envoi du SMS
+                                    String generatedPassword = PasswordGenerator.generate();
+                                    String clientUsername = formatPhoneNumber(lead.getPhoneNumber());
 
-                        Account account = new Account();
-                        account.setLead(lead);
-                        account.setUsername(clientUsername);
-                        account.setPasswordHash(BcryptUtil.bcryptHash(generatedPassword));
-                        account.setActive(true);
-                        account.setFineractClientId(clientId);
+                                    Account account = new Account();
+                                    account.setLead(lead);
+                                    account.setUsername(clientUsername);
+                                    account.setPasswordHash(BcryptUtil.bcryptHash(generatedPassword));
+                                    account.setActive(true);
+                                    account.setFineractClientId(clientId);
 
-                        // Persister le compte et envoyer un SMS de bienvenue
-                        return account.<Account>persistAndFlush()
-                                .flatMap(savedAccount ->
-                                        sendWelcomeSms(clientUsername, generatedPassword, account, lead)
-                                                .map(smsResp -> Response.ok("Client + Prêt créés + SMS envoyé").build())
-                                                .onFailure().recoverWithItem(error -> {
-                                                    LOG.error("Échec envoi SMS, mais Client + Prêt + Compte OK", error);
-                                                    return Response.ok("Client + Prêt + Compte créés, SMS échoué").build();
-                                                })
-                                );
-                    } else {
+                                    return account.<Account>persistAndFlush()
+                                            .flatMap(savedAccount ->
+                                                    sendWelcomeSms(clientUsername, generatedPassword, account, lead)
+                                                            .map(smsResp -> Response.ok("Client + Prêt créé et approuvé + SMS envoyé").build())
+                                                            .onFailure().recoverWithItem(error -> {
+                                                                LOG.error("Échec envoi SMS, mais Client + Prêt approuvé + Compte OK", error);
+                                                                return Response.ok("Client + Prêt approuvé + Compte créés, SMS échoué").build();
+                                                            })
+                                            );
+                                });
+                    }  else {
                         return Uni.createFrom().item(
                                 Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                                         .entity("Échec création du Prêt")
                                         .build()
                         );
                     }
-                })
+                }))
                 .onFailure().invoke(err -> LOG.error("Erreur createClient()", err));
     }
 
