@@ -80,4 +80,22 @@ public interface FineractClient {
             @QueryParam("associations") String associations,
             @QueryParam("exclude") @Encoded String exclude  // Ajout de @Encoded pour éviter le double encodage
     );
+
+    @GET
+    @Path("/loans/external-id/{loanExternalId}/template")
+    Uni<Response> getLoanTemplate(
+            @PathParam("loanExternalId") String loanExternalId,
+            @QueryParam("templateType") String templateType
+    );
+
+    @POST
+    @Path("/loans/external-id/{loanExternalId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    Uni<Response> postLoanCommand(
+            @PathParam("loanExternalId") String loanExternalId,
+            @QueryParam("command") String command,
+            String requestBody
+    );
+
 }
