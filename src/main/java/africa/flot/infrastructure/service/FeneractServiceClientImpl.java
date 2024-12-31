@@ -139,7 +139,9 @@ public class FeneractServiceClientImpl {
                                     account.setLead(lead);
                                     account.setUsername(clientUsername);
                                     account.setPasswordHash(BcryptUtil.bcryptHash(generatedPassword));
+                                    account.setTemporaryPassword(BcryptUtil.bcryptHash(generatedPassword));
                                     account.setActive(true);
+                                    account.setPasswordChanged(false);
                                     account.setFineractClientId(clientId);
 
                                     return account.<Account>persistAndFlush()

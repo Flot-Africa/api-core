@@ -1,4 +1,4 @@
-package africa.flot.infrastructure.interfaces.rest;
+package africa.flot.infrastructure.resource.rest;
 
 import africa.flot.application.usecase.lead.CalculateLeadScore;
 import africa.flot.domain.model.LeadScore;

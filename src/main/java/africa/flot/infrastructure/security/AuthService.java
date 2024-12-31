@@ -1,5 +1,6 @@
 package africa.flot.infrastructure.security;
 
+import africa.flot.application.dto.response.AuthResponseDTO;
 import africa.flot.application.ports.OldPasswordRepository;
 import africa.flot.domain.model.Account;
 import africa.flot.domain.model.Lead;
@@ -8,6 +9,7 @@ import africa.flot.infrastructure.repository.AccountRepository;
 import africa.flot.infrastructure.repository.SessionRepository;
 import africa.flot.infrastructure.repository.TokenBlacklistRepository;
 import africa.flot.infrastructure.repository.impl.UserRepositoryImpl;
+import africa.flot.infrastructure.util.ApiResponseBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
@@ -204,11 +206,7 @@ public class AuthService {
                 .onFailure().invoke(e -> LOG.error("Erreur lors de l'authentification admin", e));
     }
 
-    public Uni<Map<String, Object>> generateSubscriberJWT(String username) {
-        if (username == null) {
-            LOG.warn("generateSubscriberJWT: Invalid username received, username is null");
-            return Uni.createFrom().failure(new IllegalArgumentException("Invalid input: username must not be null"));
-        }
+    public Uni<AuthResponseDTO> generateSubscriberJWT(String username) {
         return accountRepository.findByUsername(username)
                 .onItem().transform(account -> {
                     if (account != null && account.isActive) {
@@ -217,19 +215,23 @@ public class AuthService {
                                 .groups(Set.of("SUBSCRIBER"))
                                 .claim("username", account.username)
                                 .claim("subscriberId", account.lead.getId().toString())
+                                .claim("requirePasswordChange", !account.passwordChanged && account.temporaryPassword != null)
                                 .expiresIn(jwtDuration)
                                 .sign();
-                        LOG.info("JWT généré pour l'abonné " + username);
-                        Map<String, Object> jwtData = new HashMap<>();
-                        jwtData.put("token", token);
-                        jwtData.put("expiresIn", jwtDuration.getSeconds());
-                        return jwtData;
+
+                        return new AuthResponseDTO(
+                                token,
+                                jwtDuration.getSeconds(),
+                                account.passwordChanged,
+                                !account.passwordChanged && account.temporaryPassword != null
+                        );
                     }
                     LOG.warn("Impossible de générer JWT pour un compte non trouvé ou inactif : " + username);
                     return null;
                 })
                 .onFailure().invoke(e -> LOG.error("Erreur lors de la génération du JWT abonné", e));
     }
+
 
 
     public Uni<Map<String, Object>> generateAdminJWT(String email) {
@@ -352,44 +354,77 @@ public class AuthService {
     public Uni<Response> changePassword(String username, String oldPassword, String newPassword) {
         if (username == null || oldPassword == null || newPassword == null || oldPassword.equals(newPassword)) {
             LOG.warn("changePassword: Données invalides fournies");
-            return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).entity("Données invalides ou mot de passe identique à l'ancien").build());
+            return Uni.createFrom().item(ApiResponseBuilder.failure(
+                    "Données invalides ou mot de passe identique à l'ancien",
+                    Response.Status.BAD_REQUEST
+            ));
         }
 
         return accountRepository.findByUsername(username)
                 .onItem().transformToUni(account -> {
-                    if (account != null && BcryptUtil.matches(oldPassword, account.passwordHash)) {
-                        String newHash = BcryptUtil.bcryptHash(newPassword);
-
-                        return oldPasswordRepository.isPasswordUsed(account.id, newHash)
-                                .onItem().transformToUni(isUsed -> {
-                                    if (isUsed) {
-                                        LOG.warn("changePassword: Nouveau mot de passe déjà utilisé pour " + username);
-                                        return Uni.createFrom().item(Response.status(Response.Status.CONFLICT).entity("Nouveau mot de passe déjà utilisé").build());
-                                    }
-                                    account.passwordHash = newHash;
-                                    return accountRepository.updatePassword(account.getLead().getId(), account.passwordHash)
-                                            .onItem().transformToUni(updated -> {
-                                                LOG.info("Mot de passe changé avec succès pour : " + username);
-                                                OldPassword oldPasswordEntity = new OldPassword();
-                                                oldPasswordEntity.account = account;
-                                                oldPasswordEntity.passwordHash = newHash;
-                                                return oldPasswordRepository.saveOldPassword(oldPasswordEntity)
-                                                        .onItem().transformToUni(saved ->
-                                                                invalidateUserCache(username, "SUBSCRIBER")
-                                                                        .onItem().transform(v ->
-                                                                                Response.ok("Mot de passe mis à jour avec succès").build()
-                                                                        )
-                                                        );
-                                            });
-                                });
-                    } else {
-                        LOG.warn("changePassword: Ancien mot de passe incorrect pour " + username);
-                        return Uni.createFrom().item(Response.status(Response.Status.UNAUTHORIZED).entity("Ancien mot de passe incorrect").build());
+                    if (account == null) {
+                        return Uni.createFrom().item(ApiResponseBuilder.failure(
+                                "Compte non trouvé",
+                                Response.Status.NOT_FOUND
+                        ));
                     }
+
+                    // Vérifier si c'est un mot de passe temporaire ou le mot de passe actuel
+                    boolean isTemporaryPassword = account.temporaryPassword != null &&
+                            BcryptUtil.matches(oldPassword, account.temporaryPassword);
+                    boolean isCurrentPassword = BcryptUtil.matches(oldPassword, account.passwordHash);
+
+                    if (!isTemporaryPassword && !isCurrentPassword) {
+                        LOG.warn("changePassword: Ancien mot de passe incorrect pour " + username);
+                        return Uni.createFrom().item(ApiResponseBuilder.failure(
+                                "Ancien mot de passe incorrect",
+                                Response.Status.UNAUTHORIZED
+                        ));
+                    }
+
+                    String newHash = BcryptUtil.bcryptHash(newPassword);
+
+                    // Vérifier si le nouveau mot de passe a déjà été utilisé
+                    return oldPasswordRepository.isPasswordUsed(account.id, newHash)
+                            .onItem().transformToUni(isUsed -> {
+                                if (isUsed) {
+                                    LOG.warn("changePassword: Nouveau mot de passe déjà utilisé pour " + username);
+                                    return Uni.createFrom().item(ApiResponseBuilder.failure(
+                                            "Ce mot de passe a déjà été utilisé",
+                                            Response.Status.CONFLICT
+                                    ));
+                                }
+
+                                // Mettre à jour le mot de passe
+                                account.passwordHash = newHash;
+                                account.temporaryPassword = null;
+                                account.passwordChanged = true;
+
+                                return accountRepository.updatePassword(account.getLead().getId(), account.passwordHash)
+                                        .onItem().transformToUni(updated -> {
+                                            LOG.info("Mot de passe changé avec succès pour : " + username);
+
+                                            // Sauvegarder dans l'historique des mots de passe
+                                            OldPassword oldPasswordEntity = new OldPassword();
+                                            oldPasswordEntity.account = account;
+                                            oldPasswordEntity.passwordHash = newHash;
+
+                                            return oldPasswordRepository.saveOldPassword(oldPasswordEntity)
+                                                    .onItem().transformToUni(saved ->
+                                                            invalidateUserCache(username, "SUBSCRIBER")
+                                                                    .onItem().transform(v ->
+                                                                            ApiResponseBuilder.success("Mot de passe mis à jour avec succès")
+                                                                    )
+                                                    );
+                                        });
+                            });
                 })
                 .onFailure().recoverWithItem(e -> {
                     LOG.error("Erreur lors de la modification du mot de passe", e);
-                    return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Erreur interne").build();
+                    return ApiResponseBuilder.failure(
+                            "Une erreur est survenue lors du changement de mot de passe",
+                            Response.Status.INTERNAL_SERVER_ERROR
+                    );
                 });
     }
 

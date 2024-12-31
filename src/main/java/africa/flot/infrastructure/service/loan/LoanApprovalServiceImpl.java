@@ -1,4 +1,4 @@
-package africa.flot.infrastructure.service;
+package africa.flot.infrastructure.service.loan;
 
 import africa.flot.application.ports.LoanApprovalService;
 import africa.flot.domain.model.exception.BusinessException;
