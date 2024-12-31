@@ -98,4 +98,21 @@ public interface FineractClient {
             String requestBody
     );
 
+    @GET
+    @Path("/loans/external-id/{loanExternalId}/transactions/template")
+    Uni<Response> getLoanTransactionTemplate(
+            @PathParam("loanExternalId") String loanExternalId,
+            @QueryParam("command") String command
+    );
+
+    @POST
+    @Path("/loans/external-id/{loanExternalId}/transactions")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    Uni<Response> postLoanTransaction(
+            @PathParam("loanExternalId") String loanExternalId,
+            @QueryParam("command") String command,
+            String requestBody
+    );
+
 }

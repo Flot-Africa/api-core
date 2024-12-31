@@ -1,17 +1,13 @@
-package africa.flot.infrastructure.interfaces.rest;
+package africa.flot.infrastructure.resource.rest;
 
 import africa.flot.application.auth.AdminAuthCommand;
 import africa.flot.application.auth.SubscriberAuthCommand;
 import africa.flot.application.dto.command.ChangePasswordCommand;
-import africa.flot.domain.model.Lead;
 import africa.flot.infrastructure.security.AuthService;
 import africa.flot.infrastructure.util.ApiResponseBuilder;
-import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
-import io.minio.http.Method;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -30,7 +26,6 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
 
 import java.time.Duration;
-import java.util.Map;
 
 @Path("/auth")
 @ApplicationScoped
@@ -57,7 +52,7 @@ public class AuthResource {
 
     @POST
     @PermitAll
-    @Path("/subscriber/login")
+    @Path("/lead/login")
     @WithSession
     @Operation(summary = "Authenticate a subscriber", description = "Allows a subscriber to log in using a phone number and password.")
     @APIResponse(responseCode = "200", description = "Authentication successful", content = @Content(mediaType = MediaType.APPLICATION_JSON))
@@ -75,8 +70,13 @@ public class AuthResource {
                         BUSINESS_LOG.info("loginSubscriber: Authentication successful for phone: " + command.phone());
                         return authService.generateSubscriberJWT(command.phone())
                                 .onItem().transform(jwtData -> {
-                                    AUDIT_LOG.info("loginSubscriber: JWT generated for subscriber with phone: " + command.phone());
-                                    return ApiResponseBuilder.success(jwtData);
+                                    if (jwtData != null) {
+                                        AUDIT_LOG.info("loginSubscriber: JWT generated for subscriber with phone: " + command.phone());
+                                        return ApiResponseBuilder.success(jwtData);
+                                    } else {
+                                        ERROR_LOG.warn("loginSubscriber: JWT generation failed for phone: " + command.phone());
+                                        return ApiResponseBuilder.failure("Error generating JWT", Response.Status.INTERNAL_SERVER_ERROR);
+                                    }
                                 });
                     } else {
                         ERROR_LOG.warn("loginSubscriber: Authentication failed for phone: " + command.phone());
@@ -84,6 +84,7 @@ public class AuthResource {
                     }
                 });
     }
+
 
     @POST
     @PermitAll
@@ -100,16 +101,15 @@ public class AuthResource {
         }
 
         BUSINESS_LOG.info("loginAdmin: Attempting admin login for email: " + command.email());
-        return authService.authenticateAdminWithApiKeyAndSession(command.email(), command.apiKey(), command.sessionId())
-                .onItem().transform(jwtData -> {
-                    if (jwtData != null) {
-                        AUDIT_LOG.info("loginAdmin: JWT generated for admin with email: " + command.email());
-                        return ApiResponseBuilder.success(jwtData);
-                    } else {
-                        ERROR_LOG.warn("loginAdmin: Authentication failed for email: " + command.email());
-                        return ApiResponseBuilder.failure("Invalid credentials or session", Response.Status.UNAUTHORIZED);
-                    }
-                });
+        return authService.authenticateAdminWithApiKeyAndSession(command.email(), command.apiKey(), command.sessionId()).onItem().transform(jwtData -> {
+            if (jwtData != null) {
+                AUDIT_LOG.info("loginAdmin: JWT generated for admin with email: " + command.email());
+                return ApiResponseBuilder.success(jwtData);
+            } else {
+                ERROR_LOG.warn("loginAdmin: Authentication failed for email: " + command.email());
+                return ApiResponseBuilder.failure("Invalid credentials or session", Response.Status.UNAUTHORIZED);
+            }
+        });
     }
 
 
@@ -126,27 +126,24 @@ public class AuthResource {
         }
 
         String usernameOrEmail = securityContext.getUserPrincipal().getName();
-        String role = securityContext.isUserInRole("SUBSCRIBER") ? "SUBSCRIBER" :
-                securityContext.isUserInRole("ADMIN") ? "ADMIN" : null;
+        String role = securityContext.isUserInRole("SUBSCRIBER") ? "SUBSCRIBER" : securityContext.isUserInRole("ADMIN") ? "ADMIN" : null;
 
         if (role == null) {
             ERROR_LOG.warn("me: User role unknown");
             return Uni.createFrom().item(ApiResponseBuilder.failure("Unknown role", Response.Status.FORBIDDEN));
         }
 
-        return authService.getUserInfo(usernameOrEmail, role)
-                .onItem().transform(userInfo -> {
-                    if (userInfo == null) {
-                        ERROR_LOG.warn("me: User not found for identifier: " + usernameOrEmail);
-                        return ApiResponseBuilder.failure("User not found", Response.Status.NOT_FOUND);
-                    }
-                    AUDIT_LOG.info("me: User info retrieved successfully for: " + usernameOrEmail);
-                    return ApiResponseBuilder.success(userInfo);
-                })
-                .onFailure().recoverWithItem(throwable -> {
-                    ERROR_LOG.error("me: Error retrieving user info: " + throwable.getMessage());
-                    return ApiResponseBuilder.failure("Error retrieving user info", Response.Status.INTERNAL_SERVER_ERROR);
-                });
+        return authService.getUserInfo(usernameOrEmail, role).onItem().transform(userInfo -> {
+            if (userInfo == null) {
+                ERROR_LOG.warn("me: User not found for identifier: " + usernameOrEmail);
+                return ApiResponseBuilder.failure("User not found", Response.Status.NOT_FOUND);
+            }
+            AUDIT_LOG.info("me: User info retrieved successfully for: " + usernameOrEmail);
+            return ApiResponseBuilder.success(userInfo);
+        }).onFailure().recoverWithItem(throwable -> {
+            ERROR_LOG.error("me: Error retrieving user info: " + throwable.getMessage());
+            return ApiResponseBuilder.failure("Error retrieving user info", Response.Status.INTERNAL_SERVER_ERROR);
+        });
     }
 
     @POST
@@ -169,16 +166,15 @@ public class AuthResource {
         }
 
         BUSINESS_LOG.info("logout: Invalidating token for current user");
-        return authService.invalidateToken(token)
-                .onItem().transform(isInvalidated -> {
-                    if (isInvalidated) {
-                        AUDIT_LOG.info("logout: Token invalidated successfully");
-                        return ApiResponseBuilder.success("Logout successful");
-                    } else {
-                        ERROR_LOG.warn("logout: Token invalidation failed");
-                        return ApiResponseBuilder.failure("Logout failed", Response.Status.INTERNAL_SERVER_ERROR);
-                    }
-                });
+        return authService.invalidateToken(token).onItem().transform(isInvalidated -> {
+            if (isInvalidated) {
+                AUDIT_LOG.info("logout: Token invalidated successfully");
+                return ApiResponseBuilder.success("Logout successful");
+            } else {
+                ERROR_LOG.warn("logout: Token invalidation failed");
+                return ApiResponseBuilder.failure("Logout failed", Response.Status.INTERNAL_SERVER_ERROR);
+            }
+        });
     }
 
     @POST
@@ -197,15 +193,14 @@ public class AuthResource {
         String username = securityContext.getUserPrincipal().getName();
         BUSINESS_LOG.info("changePassword: Attempting to change password for user: " + username);
 
-        return authService.changePassword(username, command.getOldPassword(), command.getNewPassword())
-                .onItem().transform(response -> {
-                    if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-                        AUDIT_LOG.info("changePassword: Password changed successfully for " + username);
-                    } else {
-                        ERROR_LOG.warn("changePassword: Failed to change password for " + username);
-                    }
-                    return response;
-                });
+        return authService.changePassword(username, command.getOldPassword(), command.getNewPassword()).onItem().transform(response -> {
+            if (response.getStatus() == Response.Status.OK.getStatusCode()) {
+                AUDIT_LOG.info("changePassword: Password changed successfully for " + username);
+            } else {
+                ERROR_LOG.warn("changePassword: Failed to change password for " + username);
+            }
+            return response;
+        });
     }
 
     private String extractToken(ContainerRequestContext requestContext) {

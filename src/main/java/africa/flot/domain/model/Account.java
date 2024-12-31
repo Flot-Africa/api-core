@@ -45,7 +45,11 @@ public class Account extends PanacheEntityBase {
     private int smsRetryCount = 0;
 
     @Column(name = "temporary_password")
-    private String temporaryPassword;
+    public String temporaryPassword;
+
+    @Column(name = "password_changed")
+    public boolean passwordChanged = false;
+
     // Méthodes utilitaires
     public void deactivate() {
         this.isActive = false;

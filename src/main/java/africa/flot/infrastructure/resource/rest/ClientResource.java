@@ -1,4 +1,4 @@
-package africa.flot.infrastructure.interfaces.rest;
+package africa.flot.infrastructure.resource.rest;
 
 import africa.flot.application.dto.command.InitLoanCommande;
 import africa.flot.infrastructure.service.FeneractServiceClientImpl;
