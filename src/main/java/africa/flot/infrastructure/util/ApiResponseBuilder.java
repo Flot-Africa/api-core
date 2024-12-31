@@ -41,4 +41,12 @@ public class ApiResponseBuilder {
         response.put("message", message);
         return Response.status(status).entity(response).build();
     }
+
+    public static Response failure(String message, String errorCode, Status status) {
+        LOG.error("ApiResponseBuilder.failure: Building failure response with message: " + message + ", status: " + status + errorCode);
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "failure");
+        response.put("message", message);
+        return Response.status(status).entity(response).build();
+    }
 }
