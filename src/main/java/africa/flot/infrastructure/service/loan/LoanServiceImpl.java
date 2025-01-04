@@ -19,6 +19,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.Executor;
 
@@ -177,37 +178,85 @@ public class LoanServiceImpl implements LoanService {
         Map<String, Object> backOfficeData = new HashMap<>();
 
         try {
+            // Basic loan information
             backOfficeData.put("loanId", getTextOrDefault(loanData, "id", "N/A"));
             backOfficeData.put("clientName", getTextOrDefault(loanData, "clientName", "N/A"));
 
+            // Status information
             JsonNode status = loanData.path("status");
             backOfficeData.put("status", !status.isMissingNode() ?
                     getTextOrDefault(status, "value", "N/A") : "N/A");
 
+            // Payment schedule information
             JsonNode repaymentSchedule = loanData.path("repaymentSchedule");
             if (!repaymentSchedule.isMissingNode()) {
                 backOfficeData.put("totalPrincipalPaid",
                         getTextOrDefault(repaymentSchedule, "totalPrincipalPaid", "0"));
                 backOfficeData.put("totalOutstanding",
                         getTextOrDefault(repaymentSchedule, "totalOutstanding", "0"));
+                backOfficeData.put("totalPaidInAdvance",
+                        getTextOrDefault(repaymentSchedule, "totalPaidInAdvance", "0"));
+                backOfficeData.put("totalPaidLate",
+                        getTextOrDefault(repaymentSchedule, "totalPaidLate", "0"));
                 BUSINESS_LOG.debugf("Montant restant dû: {}",
                         getTextOrDefault(repaymentSchedule, "totalOutstanding", "0"));
             }
 
+            // Summary and arrears information
             JsonNode summary = loanData.path("summary");
-            backOfficeData.put("arrears",
-                    !summary.isMissingNode() ? getTextOrDefault(summary, "totalOverdue", "0") : "0");
+            double totalOverdue = !summary.isMissingNode() ?
+                    Double.parseDouble(getTextOrDefault(summary, "totalOverdue", "0")) : 0;
+            backOfficeData.put("arrears", totalOverdue);
+
+            // Payment status indicators
+            backOfficeData.put("isOverdue", totalOverdue > 0);
 
             JsonNode periods = repaymentSchedule.path("periods");
             if (!periods.isMissingNode() && periods.isArray() && !periods.isEmpty()) {
-                JsonNode firstPeriod = periods.get(0);
-                Map<String, Object> installment = new HashMap<>();
-                installment.put("dueDate", formatDueDate(firstPeriod.path("dueDate")));
-                installment.put("totalDue", getTextOrDefault(firstPeriod, "totalDueForPeriod", "0"));
-                backOfficeData.put("nextInstallment", installment);
+                // Find the next unpaid installment
+                JsonNode nextUnpaidInstallment = findNextUnpaidInstallment(periods);
+
+                if (nextUnpaidInstallment != null) {
+                    Map<String, Object> installment = new HashMap<>();
+                    installment.put("dueDate", formatDueDate(nextUnpaidInstallment.path("dueDate")));
+                    installment.put("totalDue", getTextOrDefault(nextUnpaidInstallment, "totalDueForPeriod", "0"));
+                    installment.put("principalDue", getTextOrDefault(nextUnpaidInstallment, "principalDue", "0"));
+                    installment.put("principalPaid", getTextOrDefault(nextUnpaidInstallment, "principalPaid", "0"));
+                    installment.put("principalOutstanding", getTextOrDefault(nextUnpaidInstallment, "principalOutstanding", "0"));
+                    installment.put("period", getTextOrDefault(nextUnpaidInstallment, "period", "0"));
+
+                    // Compare current date with due date to determine payment status
+                    JsonNode dueDateNode = nextUnpaidInstallment.path("dueDate");
+                    LocalDate dueDate = LocalDate.of(
+                            dueDateNode.get(0).asInt(),
+                            dueDateNode.get(1).asInt(),
+                            dueDateNode.get(2).asInt()
+                    );
+                    LocalDate currentDate = LocalDate.of(2025, 1, 4); // Date courante fixée
+                    String paymentStatus = determinePaymentStatus(dueDate, currentDate);
+                    installment.put("paymentStatus", paymentStatus);
+
+                    backOfficeData.put("nextInstallment", installment);
+                } else {
+                    backOfficeData.put("nextInstallment",
+                            Map.of("dueDate", "N/A",
+                                    "totalDue", "0",
+                                    "principalDue", "0",
+                                    "principalPaid", "0",
+                                    "principalOutstanding", "0",
+                                    "period", "0",
+                                    "paymentStatus", "COMPLETED"));
+                    BUSINESS_LOG.infof("Toutes les échéances sont payées");
+                }
             } else {
                 backOfficeData.put("nextInstallment",
-                        Map.of("dueDate", "N/A", "totalDue", "0"));
+                        Map.of("dueDate", "N/A",
+                                "totalDue", "0",
+                                "principalDue", "0",
+                                "principalPaid", "0",
+                                "principalOutstanding", "0",
+                                "period", "0",
+                                "paymentStatus", "NOT_STARTED"));
                 BUSINESS_LOG.warnf("Aucune échéance future trouvée");
             }
 
@@ -218,6 +267,33 @@ public class LoanServiceImpl implements LoanService {
         }
     }
 
+    private JsonNode findNextUnpaidInstallment(JsonNode periods) {
+        for (JsonNode period : periods) {
+            // Skip period 0 which is usually the disbursement entry
+            if (period.path("period").asInt() == 0) {
+                continue;
+            }
+
+            double principalDue = Double.parseDouble(getTextOrDefault(period, "principalDue", "0"));
+            double principalPaid = Double.parseDouble(getTextOrDefault(period, "principalPaid", "0"));
+
+            // Found an installment where paid amount is less than due amount
+            if (principalPaid < principalDue) {
+                return period;
+            }
+        }
+        return null;
+    }
+
+    private String determinePaymentStatus(LocalDate dueDate, LocalDate currentDate) {
+        if (currentDate.isBefore(dueDate)) {
+            return "IN_ADVANCE";
+        } else if (currentDate.isEqual(dueDate)) {
+            return "ON_TIME";
+        } else {
+            return "LATE";
+        }
+    }
     @Override
     public Uni<List<JsonObject>> getLoanRepaymentHistory(UUID externalId) {
         BUSINESS_LOG.debugf("Récupération de l'historique des paiements: {}", externalId);
