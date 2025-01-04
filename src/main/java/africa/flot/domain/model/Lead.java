@@ -30,7 +30,7 @@ public class Lead extends PanacheEntityBase {
     private String phoneNumber;
 
     @Column(name = "office_id")
-    private int officeId;
+    private Integer officeId;
 
     @Column(name = "fullname")
     private String fullname;
