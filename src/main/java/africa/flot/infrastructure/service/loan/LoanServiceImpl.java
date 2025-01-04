@@ -213,6 +213,31 @@ public class LoanServiceImpl implements LoanService {
 
             JsonNode periods = repaymentSchedule.path("periods");
             if (!periods.isMissingNode() && periods.isArray() && !periods.isEmpty()) {
+                // Calculer la somme des impayés et retards
+                double totalUnpaid = 0;
+                for (JsonNode period : periods) {
+                    // On ignore la période 0 (décaissement)
+                    if (period.path("period").asInt() == 0) {
+                        continue;
+                    }
+
+                    double principalDue = Double.parseDouble(getTextOrDefault(period, "principalDue", "0"));
+                    double principalPaid = Double.parseDouble(getTextOrDefault(period, "principalPaid", "0"));
+                    LocalDate dueDate = LocalDate.of(
+                            period.path("dueDate").get(0).asInt(),
+                            period.path("dueDate").get(1).asInt(),
+                            period.path("dueDate").get(2).asInt()
+                    );
+                    LocalDate currentDate = LocalDate.of(2025, 1, 4);
+
+                    // Si la date d'échéance est passée et qu'il y a un montant impayé
+                    if (dueDate.isBefore(currentDate) && principalPaid < principalDue) {
+                        totalUnpaid += (principalDue - principalPaid);
+                    }
+                }
+                backOfficeData.put("totalUnpaid", totalUnpaid);
+                BUSINESS_LOG.debugf("Montant total des impayés: {}", totalUnpaid);
+
                 // Find the next unpaid installment
                 JsonNode nextUnpaidInstallment = findNextUnpaidInstallment(periods);
 
@@ -257,6 +282,7 @@ public class LoanServiceImpl implements LoanService {
                                 "principalOutstanding", "0",
                                 "period", "0",
                                 "paymentStatus", "NOT_STARTED"));
+                backOfficeData.put("totalUnpaid", 0);
                 BUSINESS_LOG.warnf("Aucune échéance future trouvée");
             }
 
@@ -266,7 +292,6 @@ public class LoanServiceImpl implements LoanService {
             throw new BusinessException("Erreur lors du traitement des données du prêt");
         }
     }
-
     private JsonNode findNextUnpaidInstallment(JsonNode periods) {
         for (JsonNode period : periods) {
             // Skip period 0 which is usually the disbursement entry
