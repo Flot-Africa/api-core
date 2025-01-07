@@ -35,12 +35,28 @@ public class DanayaVerificationResults extends PanacheEntityBase {
 
     // Méthode pour initialiser ou mettre à jour l'entité à partir d'un DanayaVerificationResult
     public void updateFromVerificationResult(DanayaVerificationResult result) {
-        this.id = result.getId();
+//        this.id = result.getId();
         this.status = result.getStatus();
         this.createdAt = result.getCreatedAt();
         this.responseDetails = convertResultToJson(result);
     }
-
+    public DanayaVerificationResult toDanayaVerificationResult() {
+        try {
+            DanayaVerificationResult result = objectMapper.readValue(this.responseDetails, DanayaVerificationResult.class);
+            // S'assurer que les champs principaux sont correctement définis
+            result.setId(this.id);
+            result.setStatus(this.status);
+            result.setCreatedAt(this.createdAt);
+            return result;
+        } catch (JsonProcessingException e) {
+            // En cas d'erreur de désérialisation, créer un résultat minimal
+            DanayaVerificationResult fallbackResult = new DanayaVerificationResult();
+            fallbackResult.setId(this.id);
+            fallbackResult.setStatus(this.status);
+            fallbackResult.setCreatedAt(this.createdAt);
+            return fallbackResult;
+        }
+    }
     private String convertResultToJson(DanayaVerificationResult result) {
         try {
             return objectMapper.writeValueAsString(result);
