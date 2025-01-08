@@ -438,7 +438,7 @@ public class DanayaService {
         DanayaVerificationResult result = new DanayaVerificationResult();
         result.setId(UUID.fromString(response.getString("clientFileToAnalyzeId")));
         result.setCreatedAt(response.getString("createdAt"));
-        result.setStatus(response.getString("status"));
+
 
         DanayaVerificationResult.PersonalInfo personalInfo = new DanayaVerificationResult.PersonalInfo();
         result.setPersonalInfo(personalInfo);
@@ -490,6 +490,7 @@ public class DanayaService {
                                 if ("EXPIRATION_CHECK".equals(type)) {
                                     JsonObject scoring = verification.getJsonObject("scoring");
                                     verificationScores.setExpiration(scoring.getString("score"));
+                                    result.setStatus(scoring.getString("score"));
                                 } else if ("DB_CHECK".equals(type)) {
                                     JsonObject scoring = verification.getJsonObject("scoring");
                                     DanayaVerificationResult.DBCheckScores dbCheckScores = new DanayaVerificationResult.DBCheckScores();
