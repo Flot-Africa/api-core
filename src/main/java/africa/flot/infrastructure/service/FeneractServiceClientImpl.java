@@ -86,9 +86,7 @@ public class FeneractServiceClientImpl {
 
                             // Appeler le client Fineract pour créer le client
                             return fineractClient.createClient(payload)
-                                    .onItem().invoke(resp -> {
-                                        LOG.info("Réponse createClient -> HTTP " + resp.getStatus());
-                                    })
+                                    .onItem().invoke(resp -> LOG.info("Réponse createClient -> HTTP " + resp.getStatus()))
                                     .flatMap(resp -> {
                                         if (resp.getStatus() < 200 || resp.getStatus() >= 300) {
                                             return Uni.createFrom().failure(
