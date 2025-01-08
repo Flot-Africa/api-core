@@ -325,7 +325,7 @@ public class DanayaService {
     private Uni<DanayaVerificationResult> handleVerificationStatusResult(DanayaVerificationResult result) {
         String status = result.getStatus();
         logger.danayaDebug(String.format("Statut vérification [uuid=%s, status=%s]", result.getId(), status));
-        if ("EN_COURS".equals(status)) {
+        if ("VALID".equals(status)) {
             return retryPollingStatus(result.getId(), 0);
         } else if ("A_TRAITER".equals(status)) {
             logger.auditAction("SYSTEM", "VERIFICATION_SUCCESS", String.format("Vérification réussie [uuid=%s]", result.getId()));
