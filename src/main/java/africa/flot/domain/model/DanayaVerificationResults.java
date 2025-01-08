@@ -36,7 +36,7 @@ public class DanayaVerificationResults extends PanacheEntityBase {
     // Méthode pour initialiser ou mettre à jour l'entité à partir d'un DanayaVerificationResult
     public void updateFromVerificationResult(DanayaVerificationResult result) {
 //        this.id = result.getId();
-        this.status = result.getStatus();
+        this.status = result.getVerificationScores().getExpiration();
         this.createdAt = result.getCreatedAt();
         this.responseDetails = convertResultToJson(result);
     }

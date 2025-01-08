@@ -9,6 +9,7 @@ import africa.flot.domain.model.DanayaVerificationResults;
 import africa.flot.domain.model.KYBDocuments;
 import africa.flot.infrastructure.logging.LoggerUtil;
 import africa.flot.infrastructure.minio.MinioService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.runtime.LaunchMode;
@@ -186,19 +187,9 @@ public class DanayaService {
     public Uni<DanayaVerificationResult> verifyIdDocumentWithPolling(String bucketName, String frontImageName, String backImageName, UUID leadId) {
         return danayaVerificationRepository.findByLeadId(leadId)
                 .flatMap(optionalVerification -> {
-                    if (optionalVerification.isPresent() && "Vérification complète".equals(optionalVerification.get().getStatus())) {
-                        logger.danayaInfo(String.format("Lead déjà vérifié [leadId=%s]. Récupération du statut de vérification actuel.", leadId));
-
-                        // Utiliser l'ID de DanayaVerificationResults pour vérifier le statut
-                        return checkVerificationStatus(optionalVerification.get().getId())
-                                .flatMap(statusResult -> {
-                                    if ("Vérification complète".equals(statusResult.getStatus()) || statusResult.isValid()) {
-                                        return Uni.createFrom().item(statusResult);
-                                    } else {
-                                        logger.danayaDebug(String.format("Le statut du lead [leadId=%s] a changé ou n'est plus valide.", leadId));
-                                        return Uni.createFrom().item(statusResult);
-                                    }
-                                });
+                    if (optionalVerification.isPresent() && "VALID".equals(optionalVerification.get().getStatus())) {
+                        logger.danayaInfo(String.format("Lead déjà vérifié [leadId=%s]. Retour du résultat existant.", leadId));
+                        return Uni.createFrom().item(optionalVerification.get().toDanayaVerificationResult());
                     }
 
                     logger.danayaInfo(String.format("Démarrage vérification documents [bucket=%s, front=%s, back=%s, leadId=%s]", bucketName, frontImageName, backImageName, leadId));
