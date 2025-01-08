@@ -67,10 +67,10 @@ public class VerificationPoller {
         String status = result.getStatus();
         logger.danayaDebug(String.format("Statut vérification [uuid=%s, status=%s]", result.getId(), status));
         switch (status) {
-            case "VALID" -> {
+            case "EN_COURS" -> {
                 return retryPollingStatus(result.getId(), 0);
             }
-            case "A_TRAITER" -> {
+            case "VALID" -> {
                 logger.auditAction("SYSTEM", "VERIFICATION_SUCCESS", String.format("Vérification réussie [uuid=%s]", result.getId()));
                 return Uni.createFrom().item(result);
             }
