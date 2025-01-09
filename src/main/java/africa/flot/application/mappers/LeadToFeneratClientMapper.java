@@ -25,10 +25,10 @@ public class LeadToFeneratClientMapper {
         command.setExternalId(String.valueOf(lead.getId()));
         command.setFirstname(lead.getFirstName());
         command.setLastname(lead.getLastName());
-        command.setOfficeId(6L);
+        command.setOfficeId(2L);
         command.setMobileNo(lead.getPhoneNumber());
         command.setEmailAddress(lead.getEmail());
-        command.setStaffId(2L);
+        command.setStaffId(1L);
         command.setIsStaff(false);
         command.setLegalFormId(1L);
 
