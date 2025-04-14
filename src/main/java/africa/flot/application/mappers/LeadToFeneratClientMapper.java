@@ -25,10 +25,10 @@ public class LeadToFeneratClientMapper {
         command.setExternalId(String.valueOf(lead.getId()));
         command.setFirstname(lead.getFirstName());
         command.setLastname(lead.getLastName());
-        command.setOfficeId(2L);
+        command.setOfficeId(6L);
         command.setMobileNo(lead.getPhoneNumber());
         command.setEmailAddress(lead.getEmail());
-        command.setStaffId(1L);
+        command.setStaffId(2L);
         command.setIsStaff(false);
         command.setLegalFormId(1L);
 
@@ -59,7 +59,7 @@ public class LeadToFeneratClientMapper {
 
         // Map family members if they exist
 
-            command.setFamilyMembers(new ArrayList<>());
+        command.setFamilyMembers(new ArrayList<>());
 
         return command;
     }
