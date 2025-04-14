@@ -1,5 +1,6 @@
 [phases.setup]
 nixPkgs = ['jdk21', 'maven']
+nixpkgsArchive = ''
 
 [phases.install]
 cmds = ['echo $(date +%s) > .buildnonce', 'mvn dependency:go-offline']
