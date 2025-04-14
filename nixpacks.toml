@@ -5,6 +5,7 @@ nixPkgs = ['jdk21', 'maven']
 cmds = ['mvn dependency:go-offline']
 
 [phases.build]
+cmds = ['build-use-substitutes false']
 cmds = ['mvn clean package -Pnative -DskipTests']
 
 [start]
