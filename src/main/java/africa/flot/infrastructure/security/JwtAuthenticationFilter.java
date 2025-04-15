@@ -1,10 +1,10 @@
 package africa.flot.infrastructure.security;
 
 import africa.flot.infrastructure.repository.TokenBlacklistRepository;
-import africa.flot.infrastructure.util.ApiResponseBuilder;
 import io.smallrye.jwt.auth.principal.JWTParser;
 import io.smallrye.jwt.auth.principal.ParseException;
 import io.smallrye.mutiny.Uni;
+import io.vertx.core.json.JsonObject;
 import jakarta.annotation.Priority;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -24,7 +24,7 @@ import java.lang.reflect.Method;
 @Priority(Priorities.AUTHENTICATION)
 public class JwtAuthenticationFilter {
 
-    private static final Logger errorf_LOG = Logger.getLogger("errorf");
+    private static final Logger LOG = Logger.getLogger(JwtAuthenticationFilter.class);
 
     @Inject
     TokenBlacklistRepository tokenBlacklistRepository;
@@ -38,45 +38,63 @@ public class JwtAuthenticationFilter {
     @ServerRequestFilter
     public Uni<Response> filter(ContainerRequestContext requestContext) {
         if (isPermitAll() || isPasswordChangeEndpoint(requestContext)) {
-            return null; // Continuer la chaîne de filtres
+            return Uni.createFrom().nullItem();
         }
 
         String token = extractToken(requestContext);
         if (token == null) {
-            return abortRequest("Token manquant");
+            return abortRequest(
+                    "Token manquant",
+                    "MISSING_TOKEN",
+                    Response.Status.UNAUTHORIZED
+            );
         }
 
         return tokenBlacklistRepository.isTokenBlacklisted(token)
-                .onFailure().invoke(e -> errorf_LOG.error("Erreur lors de la vérification du token", e))
+                .onFailure().invoke(e -> LOG.error("Erreur lors de la vérification du token", e))
                 .onItem().transformToUni(isBlacklisted -> {
                     if (isBlacklisted) {
-                        return abortRequest("Token invalidé");
+                        return abortRequest(
+                                "Token invalidé",
+                                "INVALID_TOKEN",
+                                Response.Status.UNAUTHORIZED
+                        );
                     }
 
                     if (isSubscriberToken(token)) {
-                        String username = extractClaimFromToken(token, "username");
-                        boolean requirePasswordChange = Boolean.parseBoolean(extractClaimFromToken(token, "requirePasswordChange"));
+                        boolean requirePasswordChange = Boolean.parseBoolean(
+                                extractClaimFromToken(token, "requirePasswordChange")
+                        );
 
                         if (requirePasswordChange) {
-                            return abortRequest("Le mot de passe doit être modifié");
+                            return abortRequest(
+                                    "Le mot de passe doit être modifié",
+                                    "PASSWORD_CHANGE_REQUIRED",
+                                    Response.Status.FORBIDDEN
+                            );
                         }
                     }
-                    return Uni.createFrom().nullItem(); // Continuer sans erreur
+                    return Uni.createFrom().nullItem();
                 })
-                .onFailure().recoverWithItem(e ->
-                        Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                                .entity(ApiResponseBuilder.failure("Erreur interne", Response.Status.INTERNAL_SERVER_ERROR))
-                                .build()
-                );
+                .onFailure().recoverWithItem(e -> {
+                    LOG.error("Erreur interne lors de l'authentification", e);
+                    return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                            .entity(new JsonObject()
+                                    .put("status", "failure")
+                                    .put("message", "Erreur interne")
+                                    .put("code", "INTERNAL_ERROR")
+                                    .encode())
+                            .header("Content-Type", "application/json")
+                            .build();
+                });
     }
-
 
     private boolean isSubscriberToken(String token) {
         try {
             JsonWebToken jwt = parser.parse(token);
             return jwt.getGroups().contains("SUBSCRIBER");
         } catch (ParseException e) {
-            errorf_LOG.error("Erreur lors de la vérification du type de token", e);
+            LOG.error("Erreur lors de la vérification du type de token", e);
             return false;
         }
     }
@@ -89,40 +107,29 @@ public class JwtAuthenticationFilter {
             if (claim instanceof String) {
                 return (String) claim;
             } else if (claim instanceof jakarta.json.JsonValue) {
-                jakarta.json.JsonValue jsonValue = (jakarta.json.JsonValue) claim;
-                return jsonValue.toString();
+                return claim.toString();
             } else if (claim != null) {
-                // Autre type de claim : convertir en chaîne JSON.
                 return claim.toString();
             }
             return null;
         } catch (ParseException e) {
-            errorf_LOG.error("Erreur lors de l'extraction du claim " + claimName + " du token", e);
+            LOG.error("Erreur lors de l'extraction du claim " + claimName, e);
             return null;
         }
     }
 
-
     private boolean isPasswordChangeEndpoint(ContainerRequestContext requestContext) {
-        // Vérifiez si l'URI correspond à /change-password et que la méthode est POST
         String path = requestContext.getUriInfo().getPath();
         String method = requestContext.getMethod();
-        errorf_LOG.error("path " + path + " method"+ method);
         return "/auth/change-password".equals(path) && "POST".equalsIgnoreCase(method);
     }
 
-
-
-
     private boolean isPermitAll() {
-        // Vérifiez si la classe ou la méthode est annotée avec @PermitAll
         Class<?> resourceClass = resourceInfo.getResourceClass();
         Method resourceMethod = resourceInfo.getResourceMethod();
-
         return resourceClass.isAnnotationPresent(PermitAll.class) ||
                 resourceMethod.isAnnotationPresent(PermitAll.class);
     }
-
 
     private String extractToken(ContainerRequestContext requestContext) {
         String authHeader = requestContext.getHeaderString("Authorization");
@@ -132,10 +139,16 @@ public class JwtAuthenticationFilter {
         return null;
     }
 
-    private Uni<Response> abortRequest(String message) {
+    private Uni<Response> abortRequest(String message, String errorCode, Response.Status status) {
+        JsonObject errorResponse = new JsonObject()
+                .put("status", "failure")
+                .put("message", message)
+                .put("code", errorCode);
+
         return Uni.createFrom().item(
-                Response.status(Response.Status.UNAUTHORIZED)
-                        .entity(ApiResponseBuilder.failure(message, Response.Status.UNAUTHORIZED))
+                Response.status(status)
+                        .entity(errorResponse.encode())
+                        .header("Content-Type", "application/json")
                         .build()
         );
     }

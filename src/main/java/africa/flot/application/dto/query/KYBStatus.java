@@ -1,8 +1,10 @@
 package africa.flot.application.dto.query;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
 @Data
+@RegisterForReflection
 public class KYBStatus {
     private boolean isVerified;
     private int verificationProgress;

@@ -1,21 +1,15 @@
 package africa.flot.infrastructure.service;
 
-import africa.flot.application.ports.CanScoringRepository;
-import africa.flot.application.ports.QualifiedProspectsRepository;
-import africa.flot.application.ports.ScoringRepository;
-import africa.flot.application.ports.ScoringService;
-import africa.flot.infrastructure.repository.KYBRepository;
-
-import africa.flot.domain.model.Lead;
-import africa.flot.domain.model.LeadScore;
+import africa.flot.application.ports.*;
+import africa.flot.domain.model.*;
 import africa.flot.domain.model.enums.MaritalStatus;
 import africa.flot.domain.model.valueobject.DetailedScore;
+import africa.flot.infrastructure.repository.KYBRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
@@ -37,10 +31,16 @@ public class ScoringServiceImpl implements ScoringService {
     @Inject
     CanScoringRepository canScoringRepository;
 
-    private static final int MAX_SCORE = 935;
-    private static final int PERSONAL_DATA_MAX = 250;
-    private static final int VTC_EXPERIENCE_MAX = 240;
-    private static final int DRIVING_RECORD_MAX = 170;
+    // Scores sur 10
+    private static final double MAX_SCORE = 10.0;
+    private static final double PERSONAL_DATA_MAX = 10.0;
+    private static final double DRIVING_RECORD_MAX = 10.0;
+    private static final double VTC_EXPERIENCE_MAX = 10.0;
+
+    // Coefficients
+    private static final double PERSONAL_DATA_COEFF = 0.5; // 5/10
+    private static final double DRIVING_RECORD_COEFF = 0.2; // 2/10
+    private static final double VTC_EXPERIENCE_COEFF = 0.3; // 3/10
 
     @Override
     public Uni<DetailedScore> calculateScore(Lead lead) {
@@ -93,7 +93,6 @@ public class ScoringServiceImpl implements ScoringService {
                 });
     }
 
-
     private Uni<Void> persistScore(UUID leadId, DetailedScore score) {
         LOG.debugf("Sauvegarde du score pour le lead %s", leadId);
 
@@ -101,8 +100,8 @@ public class ScoringServiceImpl implements ScoringService {
         leadScore.setId(UUID.randomUUID());
         leadScore.setLeadId(leadId);
         leadScore.setPersonalDataScore(score.getPersonalDataScore());
-        leadScore.setVtcExperienceScore(score.getVtcExperienceScore());
         leadScore.setDrivingRecordScore(score.getDrivingRecordScore());
+        leadScore.setVtcExperienceScore(score.getVtcExperienceScore());
         leadScore.setTotalScore(score.getTotalScore());
         leadScore.setCreatedAt(LocalDateTime.now());
 
@@ -114,25 +113,29 @@ public class ScoringServiceImpl implements ScoringService {
         LOG.infof("Début du calcul du score détaillé pour le lead %s", lead.getId());
 
         try {
-            int personalDataScore = calculatePersonalDataScore(lead);
-            int vtcExperienceScore = calculateVtcExperienceScore(lead);
-            int drivingRecordScore = calculateDrivingRecordScore(lead);
+            double personalDataScore = calculatePersonalDataScore(lead);
+            double drivingRecordScore = calculateDrivingRecordScore(lead);
+            double vtcExperienceScore = calculateVtcExperienceScore(lead);
 
-            int rawTotalScore = personalDataScore + vtcExperienceScore + drivingRecordScore;
-            int finalTotalScore = Math.min(rawTotalScore, MAX_SCORE);
+            // Application des coefficients
+            double weightedTotal = (personalDataScore * PERSONAL_DATA_COEFF) +
+                    (drivingRecordScore * DRIVING_RECORD_COEFF) +
+                    (vtcExperienceScore * VTC_EXPERIENCE_COEFF);
 
-            LOG.infof("Scores détaillés pour le lead %s:\n" +
-                            "- Score données personnelles: %d/%d\n" +
-                            "- Score expérience VTC: %d/%d\n" +
-                            "- Score dossier de conduite: %d/%d\n" +
-                            "- Score total (avant plafond): %d\n" +
-                            "- Score total final: %d/%d",
-                    lead.getId(), personalDataScore, PERSONAL_DATA_MAX,
-                    vtcExperienceScore, VTC_EXPERIENCE_MAX,
-                    drivingRecordScore, DRIVING_RECORD_MAX,
-                    rawTotalScore, finalTotalScore, MAX_SCORE);
+            double finalTotalScore = Math.min(weightedTotal, MAX_SCORE);
 
-            return new DetailedScore(personalDataScore, vtcExperienceScore, drivingRecordScore, finalTotalScore);
+            LOG.infof("""
+                            Scores détaillés pour le lead %s:
+                            - Score données personnelles: %.2f/10 (coeff: %.1f)
+                            - Score dossier de conduite: %.2f/10 (coeff: %.1f)
+                            - Score expérience VTC: %.2f/10 (coeff: %.1f)
+                            - Score total pondéré: %.2f/10""",
+                    lead.getId(), personalDataScore, PERSONAL_DATA_COEFF * 10,
+                    drivingRecordScore, DRIVING_RECORD_COEFF * 10,
+                    vtcExperienceScore, VTC_EXPERIENCE_COEFF * 10,
+                    finalTotalScore);
+
+            return new DetailedScore(personalDataScore, drivingRecordScore, vtcExperienceScore, finalTotalScore);
 
         } catch (Exception e) {
             LOG.errorf(e, "Erreur lors du calcul du score détaillé pour le lead %s", lead.getId());
@@ -140,91 +143,75 @@ public class ScoringServiceImpl implements ScoringService {
         }
     }
 
-    private int calculatePersonalDataScore(Lead lead) {
+    private double calculatePersonalDataScore(Lead lead) {
         LOG.infof("Calcul du score des données personnelles pour le lead %s", lead.getId());
-        int score = 0;
+        double score = 0;
 
+        // Âge (2.5 points)
         int age = lead.getBirthDate() != null ? Period.between(lead.getBirthDate(), LocalDate.now()).getYears() : -1;
+        score += (age >= 25 && age <= 50) ? 2.5 : (age > 50) ? 1.67 : (age != -1) ? 0.83 : 0;
 
-        score += (age >= 24 && age <= 54) ? 100 : (age > 54) ? 65 : (age != -1) ? 30 : 0;
+        // Résidence (2 points)
+        String residence = lead.getAddress().getZoneResidence();
+        score += "Abidjan".equalsIgnoreCase(residence) ? 2 : 1;
 
-        LOG.infof("Score basé sur l'age de %s pour le lead %s: %d", age, lead.getId(), score);
+        // Nationalité (2 points)
+        String nationality = lead.getAddress().getPaysNaissance();
+        score += "CI".equalsIgnoreCase(nationality) ? 2 : "CEDEAO".equalsIgnoreCase(nationality) ? 1.33 : 0.67;
 
+        // Statut matrimonial (2 points)
         MaritalStatus status = lead.getMaritalStatus();
-        score += (status == MaritalStatus.MARIE) ? 100 : (status != null) ? 50 : 0;
+        score += (status == MaritalStatus.MARIE) ? 2 : 1;
 
-        LOG.infof("Score basé sur le statut matrimonial  %s pour le lead %s: %d", status, lead.getId(), score);
-
+        // Nombre d'enfants (1.5 points)
         Integer childrenCount = lead.getChildrenCount();
-        score += (childrenCount != null) ? (childrenCount >= 2 ? 50 : childrenCount == 1 ? 30 : 0) : 0;
-
-        LOG.infof("Score basé sur le nombre d'enfants  %s pour le lead %s: %d", childrenCount, lead.getId(), score);
+        score += (childrenCount != null) ? (childrenCount >= 2 ? 1.5 : childrenCount == 1 ? 1 : 0.5) : 0.5;
 
         return Math.min(score, PERSONAL_DATA_MAX);
     }
 
-    private int calculateDrivingRecordScore(Lead lead) {
+    private double calculateDrivingRecordScore(Lead lead) {
         LOG.infof("Calcul du score du dossier de conduite pour le lead %s", lead.getId());
-        int score = 0;
+        double score = 0;
 
+        // Ancienneté du permis (3 points)
         if (lead.getPermitAcquisitionDate() != null) {
             int licenseAgeYears = Period.between(lead.getPermitAcquisitionDate(), LocalDate.now()).getYears();
-            score += (licenseAgeYears >= 5) ? 100 : (licenseAgeYears >= 3) ? 70 : 30;
+            score += (licenseAgeYears >= 5) ? 3 : (licenseAgeYears >= 3) ? 2 : 1;
         }
 
+        // Points restants (3 points)
         Integer pointsRemaining = lead.getLicensePoints();
-        if (pointsRemaining != null) {
-            score += (pointsRemaining == 12) ? 70 : (pointsRemaining >= 9) ? 50 : (pointsRemaining >= 6) ? 30 : 10;
-        }
+        score += (pointsRemaining != null) ? (pointsRemaining >= 10 ? 3 : pointsRemaining >= 6 ? 2 : 1) : 0;
 
-        Integer currentInfractionsCount = lead.getCurrentInfractionsCount();
-        BigDecimal totalFineAmount = lead.getTotalFineAmount();
-        if (currentInfractionsCount != null && totalFineAmount != null) {
-            score -= (currentInfractionsCount > 0) ? (totalFineAmount.compareTo(new BigDecimal("50000")) <= 0 ? 20
-                    : (totalFineAmount.compareTo(new BigDecimal("100000")) <= 0 ? 40 : 70)) : 0;
-        }
+        // Accidents récents (2 points)
+        Integer recentAccidents = lead.getAccidentCount();
+        score += (recentAccidents != null) ? (recentAccidents == 0 ? 2 : recentAccidents == 1 ? 1 : 0) : 2;
 
-        // Ajout de l'historique des infractions
-        Integer historicalInfractionsCount = lead.getHistoricalInfractionsCount();
-        if (historicalInfractionsCount != null) {
-            score -= (historicalInfractionsCount > 10) ? 50 : (historicalInfractionsCount > 5) ? 30 : (historicalInfractionsCount > 0) ? 10 : 0;
-        }
+        // Infractions en cours (2 points)
+        boolean hasPendingFines = lead.getCurrentInfractionsCount() > 0;
+        score += hasPendingFines ? 0 : 2;
 
-        // Ajouter le score basé sur l'expérience avec des véhicules électriques
-        Boolean hasElectricVehicleExperience = lead.getHasElectricVehicleExperience();
-        if (Boolean.TRUE.equals(hasElectricVehicleExperience)) {
-            score += 40;
-            LOG.infof("Bonus ajouté pour l'expérience avec des véhicules électriques pour le lead %s: 40 points", lead.getId());
-        }
-
-        LOG.infof("Score final du dossier de conduite pour le lead %s: %d", lead.getId(), score);
-
-        return Math.min(Math.max(score, 0), DRIVING_RECORD_MAX);
+        return Math.min(score, DRIVING_RECORD_MAX);
     }
 
-    private int calculateVtcExperienceScore(Lead lead) {
+    private double calculateVtcExperienceScore(Lead lead) {
         LOG.infof("Calcul du score d'expérience VTC pour le lead %s", lead.getId());
-        int score = 0;
+        double score = 0;
 
+        // Expérience (5 points)
         if (lead.getVtcStartDate() != null) {
             long experienceMonths = Period.between(lead.getVtcStartDate(), LocalDate.now()).toTotalMonths();
-            score += (experienceMonths >= 24) ? 150 : (experienceMonths >= 12) ? 100 : 50;
+            score += (experienceMonths >= 24) ? 5 : (experienceMonths >= 12) ? 3.5 : (experienceMonths >= 6) ? 2 : 0;
         }
 
-        // Ajout du score basé sur la note sur les plateformes VTC
+        // Note moyenne (5 points)
         Double averageRating = lead.getAverageVtcRating();
-        if (averageRating != null) {
-            score += (averageRating >= 4.5) ? 50 : (averageRating >= 4.0) ? 30 : 10;
-        }
-
-        LOG.infof("Score basé sur la note des plateformes VTC pour le lead %s: %d", lead.getId(), score);
+        score += (averageRating != null) ? (averageRating >= 4.8 ? 5 : averageRating >= 4.5 ? 3.5 : averageRating >= 4.0 ? 2 : 0) : 0;
 
         return Math.min(score, VTC_EXPERIENCE_MAX);
     }
 
-
-    // Classe interne pour encapsuler les résultats de validation
-        private record ValidationResult(boolean valid, String message) {
+    private record ValidationResult(boolean valid, String message) {
     }
 }
-

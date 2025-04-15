@@ -20,16 +20,16 @@ public class LeadScore extends PanacheEntityBase {
     private UUID leadId;
 
     @Column(name = "personal_data_score")
-    private int personalDataScore;
+    private double personalDataScore;
 
     @Column(name = "vtc_experience_score")
-    private int vtcExperienceScore;
+    private double vtcExperienceScore;
 
     @Column(name = "driving_record_score")
-    private int drivingRecordScore;
+    private double drivingRecordScore;
 
     @Column(name = "total_score")
-    private int totalScore;
+    private double totalScore;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

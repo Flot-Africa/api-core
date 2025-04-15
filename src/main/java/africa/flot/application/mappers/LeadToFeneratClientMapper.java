@@ -59,7 +59,7 @@ public class LeadToFeneratClientMapper {
 
         // Map family members if they exist
 
-            command.setFamilyMembers(new ArrayList<>());
+        command.setFamilyMembers(new ArrayList<>());
 
         return command;
     }

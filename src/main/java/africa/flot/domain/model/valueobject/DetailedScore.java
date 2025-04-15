@@ -14,14 +14,14 @@ import lombok.Setter;
 @RegisterForReflection
 public class DetailedScore {
     @JsonProperty("personalDataScore")
-    private int personalDataScore;
+    private double personalDataScore;
 
     @JsonProperty("vtcExperienceScore")
-    private int vtcExperienceScore;
+    private double vtcExperienceScore;
 
     @JsonProperty("drivingRecordScore")
-    private int drivingRecordScore;
+    private double drivingRecordScore;
 
     @JsonProperty("totalScore")
-    private int totalScore;
+    private double totalScore;
 }

@@ -1,0 +1,34 @@
+name: Build Quarkus Backend
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - v*
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Create JWT Directory
+        run: mkdir -p src/main/resources/jwt
+
+      - name: Setup JWT Keys
+        run: |
+          echo "${{ secrets.JWT_PRIVATE_KEY }}" > src/main/resources/jwt/privateKey.pem
+          echo "${{ secrets.JWT_PUBLIC_KEY }}" > src/main/resources/jwt/publicKey.pem
+          chmod 600 src/main/resources/jwt/privateKey.pem src/main/resources/jwt/publicKey.pem
+
+      - name: Build Project
+        run: mvn clean package -DskipTests

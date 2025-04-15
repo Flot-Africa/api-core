@@ -70,7 +70,7 @@ public class VerificationPoller {
             case "EN_COURS" -> {
                 return retryPollingStatus(result.getId(), 0);
             }
-            case "A_TRAITER" -> {
+            case "VALID" -> {
                 logger.auditAction("SYSTEM", "VERIFICATION_SUCCESS", String.format("Vérification réussie [uuid=%s]", result.getId()));
                 return Uni.createFrom().item(result);
             }

@@ -63,7 +63,7 @@ public class WelcomeSmsRetryJob {
         String newPassword = PasswordGenerator.generate();
         String message = String.format(SMS_TEMPLATE, account.getUsername(), newPassword);
 
-        return smsService.sendSMS(account.getUsername(), message, account)
+        return smsService.sendSMS("225"+account.getUsername(), message, account)
                 .onItem().transformToUni(response -> handleSmsResponse(account, response, newPassword))
                 .onFailure().invoke(e -> LOG.errorf(e, "Erreur lors de l'envoi du SMS pour %s", account.getUsername()));
     }
