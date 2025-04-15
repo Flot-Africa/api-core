@@ -56,6 +56,7 @@ jobs:
         run: |
           mvn clean package -Pnative -DskipTests \
             -Dquarkus.native.container-build=true \
+            -Dquarkus.native.additional-build-args="-march=x86-64" \
             -Dquarkus.native.container-runtime-options="--platform=linux/amd64" \
             -Dquarkus.container-image.build=true \
             -Dquarkus.container-image.push=true \
