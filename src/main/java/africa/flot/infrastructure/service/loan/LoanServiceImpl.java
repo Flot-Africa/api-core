@@ -29,6 +29,7 @@ import java.util.concurrent.Executor;
  * donc on bascule les appels sur un WorkerPool.
  */
 @ApplicationScoped
+@Deprecated(since = "1.0.0", forRemoval = true)
 public class LoanServiceImpl implements LoanService {
 
     private static final Logger LOG = Logger.getLogger(LoanServiceImpl.class);

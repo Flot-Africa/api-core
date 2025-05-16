@@ -24,6 +24,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Loans", description = "APIs for managing loans for mobile app and back office")
+@Deprecated(since = "1.0", forRemoval = true)
 public class LoanResource {
 
     private static final Logger AUDIT_LOG = Logger.getLogger("AUDIT");

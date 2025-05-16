@@ -4,7 +4,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.core.Response;
 
 import java.math.BigDecimal;
-
+@Deprecated(since = "1.0.0", forRemoval = true)
 public interface LoanRepaymentService {
     /**
      * Effectue un remboursement pour un prêt donné

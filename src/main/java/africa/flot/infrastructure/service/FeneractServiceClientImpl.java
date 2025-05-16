@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 
 @ApplicationScoped
+@Deprecated(since = "1.0", forRemoval = true)
 public class FeneractServiceClientImpl {
     private static final Logger LOG = Logger.getLogger(FeneractServiceClientImpl.class);
 
