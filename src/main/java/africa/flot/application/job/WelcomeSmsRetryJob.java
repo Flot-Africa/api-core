@@ -1,4 +1,4 @@
-package africa.flot.infrastructure.job;
+package africa.flot.application.job;
 
 import africa.flot.domain.model.Account;
 import africa.flot.infrastructure.service.JetfySmsService;

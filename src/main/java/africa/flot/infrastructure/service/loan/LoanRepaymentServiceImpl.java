@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 @ApplicationScoped
+@Deprecated(since = "1.0.0", forRemoval = true)
 public class LoanRepaymentServiceImpl implements LoanRepaymentService {
 
     private static final Logger LOG = Logger.getLogger(LoanServiceImpl.class);

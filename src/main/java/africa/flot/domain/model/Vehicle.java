@@ -4,6 +4,8 @@ import africa.flot.domain.model.exception.BusinessException;
 import africa.flot.domain.model.enums.VehicleStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,6 +13,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "vehicle")
+@Getter
+@Setter
 public class Vehicle extends PanacheEntityBase {
 
     @Id

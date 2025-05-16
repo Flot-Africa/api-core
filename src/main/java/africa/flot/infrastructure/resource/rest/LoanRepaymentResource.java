@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Repayments", description = "Management of loan repayments")
+@Deprecated(since = "1.0", forRemoval = true)
 public class LoanRepaymentResource {
 
     private static final Logger AUDIT_LOG = Logger.getLogger("AUDIT");
