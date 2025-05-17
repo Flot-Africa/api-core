@@ -10,15 +10,23 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * Service class responsible for managing flot loans.
+ * Provides operations for creating loans, processing payments, retrieving loan details,
+ * and handling overdue loans.
+ *
+ * This class is part of a transactional system and integrates with the unpaid management service.
+ */
 @ApplicationScoped
 public class FlotLoanService {
 
@@ -318,5 +326,71 @@ public class FlotLoanService {
             long total = tuple.getItem2();
             return total > 0 ? (double) defaulted / total * 100 : 0.0;
         });
+    }
+
+    @WithSession
+    public Uni<List<FlotLoan>> getAllLoans(int page, int size) {
+        return FlotLoan.find("ORDER BY createdAt DESC")
+                .page(page, size)
+                .list();
+    }
+
+    @WithSession
+    public Uni<List<LoanPayment>> getPaymentsByLead(UUID leadId) {
+        // D'abord trouver tous les prêts du lead
+        return FlotLoan.<FlotLoan>find("leadId = ?1", leadId)
+                .list()
+                .flatMap(loans -> {
+                    if (loans.isEmpty()) {
+                        return Uni.createFrom().item(List.<LoanPayment>of());
+                    }
+
+                    // Extraire les IDs des prêts
+                    List<UUID> loanIds = loans.stream()
+                            .map(FlotLoan::getId)
+                            .collect(Collectors.toList());
+
+                    // Trouver tous les paiements pour ces prêts
+                    return LoanPayment.<LoanPayment>find("loanId IN ?1 ORDER BY paymentDate DESC", loanIds)
+                            .list();
+                });
+    }
+
+    @WithSession
+    public Uni<Map<String, Object>> getPaymentSchedule(UUID loanId) {
+        return FlotLoan.<FlotLoan>findById(loanId)
+                .onItem().ifNull().failWith(() ->
+                        new NotFoundException("Prêt introuvable: " + loanId))
+                .map(loan -> {
+                    Map<String, Object> schedule = new HashMap<>();
+
+                    // Paiement du jour
+                    LocalDate today = LocalDate.now();
+                    BigDecimal dailyAmount = loan.getWeeklyAmount().divide(BigDecimal.valueOf(7), 2, RoundingMode.HALF_UP);
+
+                    schedule.put("dailyAmount", dailyAmount);
+                    schedule.put("today", today);
+
+                    // Date du prochain paiement hebdomadaire
+                    schedule.put("nextWeeklyDueDate", loan.getNextDueDate());
+                    schedule.put("weeklyAmount", loan.getWeeklyAmount());
+
+                    // Générer les 4 prochaines échéances
+                    List<Map<String, Object>> upcomingPayments = new ArrayList<>();
+                    LocalDate nextDate = today;
+
+                    for (int i = 0; i < 4; i++) {
+                        nextDate = nextDate.plusDays(1);
+                        Map<String, Object> payment = new HashMap<>();
+                        payment.put("date", nextDate);
+                        payment.put("amount", dailyAmount);
+                        payment.put("isWeeklyDue", nextDate.equals(loan.getNextDueDate()));
+
+                        upcomingPayments.add(payment);
+                    }
+
+                    schedule.put("upcomingPayments", upcomingPayments);
+                    return schedule;
+                });
     }
 }

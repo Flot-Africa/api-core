@@ -20,6 +20,33 @@ import org.jboss.logging.Logger;
 
 import java.util.UUID;
 
+/**
+ * The FlotLoanResource class provides a RESTful API for managing loans, payments, and related operations.
+ * It supports administrative and subscriber roles, allowing actions such as loan creation, payment processing,
+ * overdue loan management, and KPI calculations.
+ *
+ * Fields:
+ * - AUDIT_LOG: Log for auditing activities.
+ * - ERROR_LOG: Log for error-related activities.
+ * - BUSINESS_LOG: Log for business-related information.
+ * - flotLoanService: Service managing loan operations.
+ * - unpaidManagementService: Service for handling unpaid loans and related processes.
+ * - securityService: Service for handling security and authorization.
+ *
+ * Methods:
+ * - createLoan: Creates a new loan for a given lead and vehicle.
+ * - processPayment: Processes a payment for a specific loan.
+ * - getLoanDetails: Retrieves the full details of a specific loan.
+ * - getLoansByLead: Lists all loans associated with a specific lead.
+ * - getOverdueLoans: Lists all overdue loans.
+ * - sendReminder: Sends a manual reminder for a loan.
+ * - getUnpaidKPIs: Calculates and retrieves KPIs related to unpaid loans.
+ * - processOverdueLoans: Forces the processing of overdue loans.
+ * - sendAutomaticReminders: Triggers the automatic sending of reminders.
+ * - getAllLoans: Retrieves all loans with pagination.
+ * - getPaymentSchedule: Retrieves the payment schedule for a specific loan.
+ * - getPaymentsByLead: Lists all payments associated with a specific lead.
+ */
 @Path("/loans-v2")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -261,6 +288,85 @@ public class FlotLoanResource {
                     ERROR_LOG.errorf("Erreur lors de l'envoi des relances: %s", throwable.getMessage());
                     return ApiResponseBuilder.failure(
                             throwable.getMessage(),
+                            Response.Status.INTERNAL_SERVER_ERROR
+                    );
+                });
+    }
+
+    @GET
+    @RolesAllowed("ADMIN")
+    @Operation(summary = "Récupérer tous les prêts", description = "Liste tous les prêts avec pagination")
+    @APIResponse(responseCode = "200", description = "Liste des prêts")
+    public Uni<Response> getAllLoans(
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+
+        BUSINESS_LOG.info("Récupération de tous les prêts");
+
+        return flotLoanService.getAllLoans(page, size)
+                .map(loans -> {
+                    AUDIT_LOG.info("Liste des prêts récupérée - Nombre: " + loans.size());
+                    return ApiResponseBuilder.success(loans);
+                })
+                .onFailure().recoverWithItem(throwable -> {
+                    ERROR_LOG.errorf("Erreur lors de la récupération des prêts: %s", throwable.getMessage());
+                    return ApiResponseBuilder.failure(
+                            "Erreur lors de la récupération",
+                            Response.Status.INTERNAL_SERVER_ERROR
+                    );
+                });
+    }
+
+    @GET
+    @Path("/{loanId}/payment-schedule")
+    @RolesAllowed({"ADMIN", "SUBSCRIBER"})
+    @Operation(summary = "Récupérer le calendrier de paiement", description = "Récupère les montants à payer aujourd'hui et à venir")
+    @APIResponse(responseCode = "200", description = "Calendrier de paiement")
+    @APIResponse(responseCode = "404", description = "Prêt introuvable")
+    public Uni<Response> getPaymentSchedule(
+            @Parameter(description = "ID du prêt") @PathParam("loanId") UUID loanId) {
+
+        BUSINESS_LOG.debugf("Récupération du calendrier de paiement pour le prêt %s", loanId);
+
+        return securityService.validateLeadAccess(loanId.toString())
+                .chain(() -> flotLoanService.getPaymentSchedule(loanId))
+                .map(schedule -> {
+                    AUDIT_LOG.infof("Calendrier de paiement récupéré - ID: %s", loanId);
+                    return ApiResponseBuilder.success(schedule);
+                })
+                .onFailure(NotFoundException.class).recoverWithItem(throwable -> {
+                    ERROR_LOG.warnf("Prêt introuvable: %s", loanId);
+                    return ApiResponseBuilder.failure("Prêt introuvable", Response.Status.NOT_FOUND);
+                })
+                .onFailure().recoverWithItem(throwable -> {
+                    ERROR_LOG.errorf("Erreur lors de la récupération du calendrier: %s", throwable.getMessage());
+                    return ApiResponseBuilder.failure(
+                            "Erreur lors de la récupération",
+                            Response.Status.INTERNAL_SERVER_ERROR
+                    );
+                });
+    }
+
+    @GET
+    @Path("/lead/{leadId}/payments")
+    @RolesAllowed({"ADMIN", "SUBSCRIBER"})
+    @Operation(summary = "Paiements d'un lead", description = "Liste tous les paiements d'un lead")
+    @APIResponse(responseCode = "200", description = "Liste des paiements")
+    public Uni<Response> getPaymentsByLead(
+            @Parameter(description = "ID du lead") @PathParam("leadId") UUID leadId) {
+
+        BUSINESS_LOG.debugf("Récupération des paiements pour le lead %s", leadId);
+
+        return securityService.validateLeadAccess(leadId.toString())
+                .chain(() -> flotLoanService.getPaymentsByLead(leadId))
+                .map(payments -> {
+                    AUDIT_LOG.infof("Paiements récupérés - Lead: %s, Nombre: %d", leadId, payments.size());
+                    return ApiResponseBuilder.success(payments);
+                })
+                .onFailure().recoverWithItem(throwable -> {
+                    ERROR_LOG.errorf("Erreur lors de la récupération des paiements: %s", throwable.getMessage());
+                    return ApiResponseBuilder.failure(
+                            "Erreur lors de la récupération",
                             Response.Status.INTERNAL_SERVER_ERROR
                     );
                 });
