@@ -2,6 +2,7 @@ package africa.flot.domain.model;
 
 import africa.flot.domain.model.enums.PaymentStatus;
 import africa.flot.domain.model.enums.PaymentMethod;
+import africa.flot.domain.model.enums.TransactionStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -42,6 +43,10 @@ public class LoanPayment extends PanacheEntityBase {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private PaymentStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transaction_status", nullable = false)
+    private TransactionStatus transactionStatus = TransactionStatus.INITIATED;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method")
