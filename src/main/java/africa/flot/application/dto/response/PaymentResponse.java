@@ -1,4 +1,9 @@
 package africa.flot.application.dto.response;
 
-public record PaymentResponse(String status) {}
+// PaymentResponse.java
+public record PaymentResponse(
+        String id,
+        String status,
+        String paymentMethod
+) {}
 

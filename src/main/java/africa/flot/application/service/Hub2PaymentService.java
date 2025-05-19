@@ -20,7 +20,7 @@ public class Hub2PaymentService {
     Hub2HeadersProvider headersProvider;
 
     public void repayLoan(Long loanId, RepaymentRequest request) {
-        Map<String, Object> headers = headersProvider.getDefaultHeaders();
+        Map<String, String> headers = headersProvider.getDefaultHeaders();
 
         // 1. Créer un PaymentIntent
         Map<String, Object> intentPayload = new HashMap<>();
@@ -33,7 +33,7 @@ public class Hub2PaymentService {
 
         // 2. Tenter un paiement Mobile Money
         Map<String, Object> paymentPayload = new HashMap<>();
-        paymentPayload.put("token", intent.token);
+        paymentPayload.put("token", intent.token());
         paymentPayload.put("paymentMethod", "mobile_money");
         paymentPayload.put("country", "CI");
         paymentPayload.put("provider", request.provider());
@@ -44,18 +44,18 @@ public class Hub2PaymentService {
 
         paymentPayload.put("mobileMoney", mobileMoney);
 
-        var payment = hub2Client.payWithMobileMoney(headers, intent.id, paymentPayload);
+        var payment = hub2Client.payWithMobileMoney(headers, intent.id(), paymentPayload);
 
         // 3. Authentifier si nécessaire
-        if ("action_required".equals(payment.status)) {
+        if ("action_required".equals(payment.status())) {
             Map<String, Object> authPayload = new HashMap<>();
-            authPayload.put("token", intent.token);
+            authPayload.put("token", intent.token());
             authPayload.put("confirmationCode", request.otp());
-            hub2Client.authenticate(headers, intent.id, authPayload);
+            hub2Client.authenticate(headers, intent.id(), authPayload);
         }
 
         // 4. Si succès, mettre à jour le prêt
-        if ("succeeded".equals(payment.status)) {
+        if ("succeeded".equals(payment.status())) {
             // appeler LoanService pour mettre à jour l'état du prêt
         }
     }

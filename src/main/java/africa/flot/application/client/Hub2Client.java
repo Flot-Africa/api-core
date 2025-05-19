@@ -18,25 +18,22 @@ public interface Hub2Client {
     @Path("payment-intents")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    IntentResponse createPaymentIntent(@HeaderParam("merchantId") String merchantId,
-                                       @HeaderParam("environment") String environment,
-                                       Map<String, Object> body);
+    IntentResponse createPaymentIntent(@HeaderParam("merchantId") Map<String, String> headers,
+                                     Map<String, Object> body);
 
     @POST
     @Path("payment-intents/{id}/payments")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    PaymentResponse payWithMobileMoney(@HeaderParam("merchantId") String merchantId,
-                                       @HeaderParam("environment") String environment,
-                                       @PathParam("id") String id,
-                                       Map<String, Object> body);
+    PaymentResponse payWithMobileMoney(@HeaderParam("merchantId") Map<String, String> headers,
+                                     @PathParam("id") String id,
+                                     Map<String, Object> body);
 
     @POST
     @Path("payment-intents/{id}/authentication")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    void authenticate(@HeaderParam("merchantId") String merchantId,
-                      @HeaderParam("environment") String environment,
-                      @PathParam("id") String id,
-                      Map<String, Object> body);
+    void authenticate(@HeaderParam("merchantId") Map<String, String> headers,
+                     @PathParam("id") String id,
+                     Map<String, Object> body);
 }
