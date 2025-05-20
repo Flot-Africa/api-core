@@ -99,7 +99,7 @@ public class Lead extends PanacheEntityBase {
     @Column(name = "children_count")
     private Integer childrenCount;
 
-    // New fields added below
+    // Existing fields for driving records & VTC info
     @Column(name = "license_points")
     private Integer licensePoints; // Remaining points on the license (out of 12)
 
@@ -121,15 +121,31 @@ public class Lead extends PanacheEntityBase {
     @Column(name = "historical_infractions_count")
     private Integer historicalInfractionsCount; // Nombre total d'infractions historiques
 
+    // New fields for scoring V2
+    @Column(name = "education_level")
+    private String educationLevel; // Niveau d'études (BAC, LICENCE, MASTER, etc.)
+
+    @Column(name = "vtc_rides_count")
+    private Integer vtcRidesCount; // Nombre total de courses VTC effectuées
+
+    @Column(name = "vtc_monthly_income")
+    private BigDecimal vtcMonthlyIncome; // Revenu mensuel des activités VTC
+
+    @Column(name = "driving_test_score")
+    private Double drivingTestScore; // Score du test de conduite
+
+    @Column(name = "informal_income")
+    private BigDecimal informalIncome; // Revenus informels
+
+    @Column(name = "debt_amount")
+    private BigDecimal debtAmount; // Montant de la dette actuelle
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-
     @Embedded
     private Address address;  // Adresse principale existante
-
-
 }

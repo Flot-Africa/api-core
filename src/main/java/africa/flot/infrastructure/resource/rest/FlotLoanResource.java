@@ -90,35 +90,6 @@ public class FlotLoanResource {
                 });
     }
 
-    @POST
-    @Path("/{loanId}/payments")
-    @RolesAllowed({"ADMIN", "SUBSCRIBER"})
-    @Operation(summary = "Enregistrer un paiement", description = "Traite un paiement pour un prêt donné")
-    @APIResponse(responseCode = "200", description = "Paiement traité avec succès")
-    @APIResponse(responseCode = "404", description = "Prêt introuvable")
-    public Uni<Response> processPayment(
-            @Parameter(description = "ID du prêt") @PathParam("loanId") UUID loanId,
-            @Valid ProcessPaymentCommand command) {
-
-        command.setLoanId(loanId);
-        BUSINESS_LOG.infof("Traitement paiement %.2f€ pour prêt %s",
-                command.getAmount(), loanId);
-
-        return securityService.validateLeadAccess(loanId.toString())
-                .chain(() -> flotLoanService.processPayment(command))
-                .map(payment -> {
-                    AUDIT_LOG.infof("Paiement traité - ID: %s, Montant: %.2f€",
-                            payment.getId(), payment.getAmount());
-                    return ApiResponseBuilder.success(payment);
-                })
-                .onFailure().recoverWithItem(throwable -> {
-                    ERROR_LOG.errorf("Erreur lors du traitement du paiement: %s", throwable.getMessage());
-                    return ApiResponseBuilder.failure(
-                            throwable.getMessage(),
-                            Response.Status.BAD_REQUEST
-                    );
-                });
-    }
 
     @GET
     @Path("/{loanId}")
