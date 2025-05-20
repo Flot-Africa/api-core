@@ -33,4 +33,10 @@ public class LeadScore extends PanacheEntityBase {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "algorithm_version")
+    private String algorithmVersion = "V1";
+
+    @Column(name = "is_approved")
+    private boolean approved = false;
 }
