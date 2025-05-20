@@ -5,5 +5,7 @@ public record PaymentResponse(
         String id,
         String status,
         String paymentMethod
-) {}
+
+) {
+}
 

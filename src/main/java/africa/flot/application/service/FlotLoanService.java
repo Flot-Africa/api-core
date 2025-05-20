@@ -92,8 +92,9 @@ public class FlotLoanService {
 
                     // Création du paiement
                     LoanPayment payment = new LoanPayment();
+                    payment.setId(UUID.randomUUID());
                     payment.setLoanId(loan.getId());
-                    payment.setAmount(command.getAmount());
+                    payment.setAmount(BigDecimal.valueOf(command.getAmount()));
                     payment.setPaymentDate(LocalDate.now());
                     payment.setDueDate(loan.getNextDueDate());
                     payment.setPaymentMethod(command.getPaymentMethod());
@@ -101,9 +102,17 @@ public class FlotLoanService {
                     payment.setNotes(command.getNotes());
                     payment.setCreatedBy(command.getCreatedBy());
 
+                    // Informations Mobile Money
+                    if (PaymentMethod.MOBILE_MONEY.equals(command.getPaymentMethod())) {
+                        payment.setPaymentProvider(command.getPaymentProvider());
+                        payment.setPaymentPhoneNumber(command.getPaymentPhoneNumber());
+                        payment.setPaymentIntentId(command.getPaymentIntentId());
+                        payment.setPaymentTransactionId(command.getExternalReference());
+                    }
+
                     // Mise à jour du prêt
-                    loan.setTotalPaid(loan.getTotalPaid().add(command.getAmount()));
-                    loan.setOutstanding(loan.getOutstanding().subtract(command.getAmount()));
+                    loan.setTotalPaid(loan.getTotalPaid().add(BigDecimal.valueOf(command.getAmount())));
+                    loan.setOutstanding(loan.getOutstanding().subtract(BigDecimal.valueOf(command.getAmount())));
                     loan.setLastPaymentDate(LocalDate.now());
 
                     // Calcul de la prochaine échéance
@@ -120,10 +129,17 @@ public class FlotLoanService {
                     }
 
                     return Uni.combine().all().unis(
-                            payment.<LoanPayment>persistAndFlush(), // Cast explicite
+                            payment.<LoanPayment>persistAndFlush(),
                             loan.persistAndFlush()
                     ).asTuple().map(tuple -> {
                         LOG.infof("Paiement traité: nouveau solde=%.2f€", loan.getOutstanding());
+
+                        // Notifier les systèmes externes si nécessaire
+                        if (PaymentMethod.MOBILE_MONEY.equals(command.getPaymentMethod())) {
+                            LOG.infof("Paiement Mobile Money %s enregistré: provider=%s, téléphone=%s",
+                                    payment.getId(), payment.getPaymentProvider(), payment.getPaymentPhoneNumber());
+                        }
+
                         return tuple.getItem1(); // Retourne le LoanPayment
                     });
                 });

@@ -33,6 +33,7 @@ public class LeadScoreResource {
     @Inject
     CalculateLeadScore calculateLeadScore;
 
+    @Deprecated(since = "1.2.0", forRemoval = true)
     @POST
     @Path("/{leadId}/calculate")
     @RolesAllowed("ADMIN")

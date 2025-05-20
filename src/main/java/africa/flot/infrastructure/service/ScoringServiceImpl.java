@@ -15,6 +15,11 @@ import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.UUID;
 
+/**
+ * @deprecated Utiliser {@link ScoringServiceV2Impl} à la place.
+ * Cette implémentation utilise l'ancien algorithme de scoring.
+ */
+@Deprecated(since = "1.1.0", forRemoval = true)
 @ApplicationScoped
 public class ScoringServiceImpl implements ScoringService {
     private static final Logger LOG = Logger.getLogger(ScoringServiceImpl.class);

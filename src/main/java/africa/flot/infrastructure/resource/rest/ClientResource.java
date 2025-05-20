@@ -21,7 +21,7 @@ import org.jboss.logging.Logger;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Client Management", description = "API for managing clients in the system")
-@Deprecated(since = "1.0", forRemoval = true)
+@Deprecated(since = "1.1.0", forRemoval = true)
 public class ClientResource {
 
     private static final Logger AUDIT_LOG = Logger.getLogger("AUDIT");
