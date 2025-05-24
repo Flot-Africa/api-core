@@ -6,6 +6,7 @@ import africa.flot.domain.model.FlotLoan;
 import africa.flot.domain.model.LoanReminder;
 import africa.flot.domain.model.enums.LoanStatus;
 import africa.flot.domain.model.enums.ReminderStatus;
+import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.scheduler.Scheduled;
 import io.quarkus.scheduler.ScheduledExecution;
 import io.smallrye.mutiny.Uni;
@@ -29,6 +30,7 @@ public class LoanMaintenanceJobs {
 
     // Tous les jours à 8h - Mise à jour des prêts en retard
     @Scheduled(cron = "0 0 8 * * ?", identity = "update-overdue-loans")
+    @WithTransaction
     public Uni<Void> updateOverdueLoans(ScheduledExecution execution) {
         LOG.info("Démarrage du job de mise à jour des prêts en retard");
 
@@ -41,6 +43,7 @@ public class LoanMaintenanceJobs {
 
     // Tous les jours à 9h - Envoi des relances automatiques
     @Scheduled(cron = "0 0 9 * * ?", identity = "send-automatic-reminders")
+    @WithTransaction
     public Uni<Void> sendAutomaticReminders(ScheduledExecution execution) {
         LOG.info("Démarrage du job d'envoi des relances automatiques");
 
@@ -53,6 +56,7 @@ public class LoanMaintenanceJobs {
 
     // Tous les lundis à 10h - Calcul des KPIs hebdomadaires
     @Scheduled(cron = "0 0 10 ? * MON", identity = "generate-weekly-reports")
+    @WithTransaction
     public Uni<Void> generateWeeklyReports(ScheduledExecution execution) {
         LOG.info("Démarrage du job de génération des rapports hebdomadaires");
 
@@ -72,6 +76,7 @@ public class LoanMaintenanceJobs {
 
     // Tous les dimanches à 23h - Nettoyage des anciennes données
     @Scheduled(cron = "0 0 23 ? * SUN", identity = "cleanup-old-data")
+    @WithTransaction
     public Uni<Void> cleanupOldData(ScheduledExecution execution) {
         LOG.info("Démarrage du job de nettoyage des anciennes données");
 
@@ -90,6 +95,7 @@ public class LoanMaintenanceJobs {
 
     // Toutes les heures - Vérification des échéances du jour
     @Scheduled(cron = "0 0 * * * ?", identity = "check-daily-due-dates")
+    @WithTransaction
     public Uni<Void> checkDailyDueDates(ScheduledExecution execution) {
         LOG.debug("Vérification des échéances du jour");
 
@@ -109,6 +115,7 @@ public class LoanMaintenanceJobs {
 
     // Toutes les 6 heures - Synchronisation des statuts de relances
     @Scheduled(cron = "0 0 */6 * * ?", identity = "sync-reminder-status")
+    @WithTransaction
     public Uni<Void> syncReminderStatus(ScheduledExecution execution) {
         LOG.debug("Synchronisation des statuts de relances");
 
@@ -132,6 +139,7 @@ public class LoanMaintenanceJobs {
 
     // Tous les premiers du mois à 6h - Rapport mensuel
     @Scheduled(cron = "0 0 6 1 * ?", identity = "generate-monthly-report")
+    @WithTransaction
     public Uni<Void> generateMonthlyReport(ScheduledExecution execution) {
         LOG.info("Génération du rapport mensuel");
 
@@ -157,6 +165,7 @@ public class LoanMaintenanceJobs {
 
     // Toutes les 30 minutes - Vérification de la santé du système
     @Scheduled(cron = "0 */30 * * * ?", identity = "health-check")
+    @WithTransaction
     public Uni<Void> healthCheck(ScheduledExecution execution) {
         LOG.debug("Vérification de la santé du système");
 
@@ -185,6 +194,7 @@ public class LoanMaintenanceJobs {
 
     // Toutes les 4 heures - Optimisation des performances
     @Scheduled(cron = "0 0 */4 * * ?", identity = "performance-optimization")
+    @WithTransaction
     public Uni<Void> performanceOptimization(ScheduledExecution execution) {
         LOG.debug("Optimisation des performances");
 

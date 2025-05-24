@@ -7,7 +7,8 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 import java.util.Map;
 
-@RegisterRestClient(configKey = "hub2-api")
+//@RegisterRestClient(configKey = "hub2-api")
+@RegisterRestClient(baseUri = "https://api.hub2.com")
 @Path("/")
 public interface Hub2ApiClient {
 

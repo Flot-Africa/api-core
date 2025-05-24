@@ -4,7 +4,6 @@ import africa.flot.application.config.Hub2Config;
 import africa.flot.application.dto.command.MobileMoneyPaymentCommand;
 import africa.flot.application.dto.command.ProcessPaymentCommand;
 import africa.flot.domain.model.FlotLoan;
-import africa.flot.domain.model.LeadPaymentIntent;
 import africa.flot.domain.model.enums.TransactionStatus;
 import africa.flot.infrastructure.client.Hub2ApiClient;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -14,10 +13,8 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @ApplicationScoped
 public class Hub2PaymentService {
@@ -241,6 +238,7 @@ public class Hub2PaymentService {
             default -> TransactionStatus.INITIATED;
         };
     }
+
 
     /**
      * Crée une commande ProcessPaymentCommand à partir d'un MobileMoneyPaymentCommand

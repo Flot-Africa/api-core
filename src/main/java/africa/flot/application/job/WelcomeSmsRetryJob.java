@@ -94,7 +94,6 @@ public class WelcomeSmsRetryJob {
 
         LOG.infof("SMS de bienvenue envoyé avec succès pour %s après %d tentatives",
                 account.getUsername(), account.getSmsRetryCount() + 1);
-
         return account.persistAndFlush();
     }
 
@@ -103,7 +102,6 @@ public class WelcomeSmsRetryJob {
 
         LOG.warnf("Échec de l'envoi du SMS de bienvenue pour %s (tentative %d/%d, status: %d)",
                 account.getUsername(), account.getSmsRetryCount(), MAX_RETRY_ATTEMPTS, statusCode);
-
         return account.persistAndFlush();
     }
 }
