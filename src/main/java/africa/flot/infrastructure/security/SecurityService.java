@@ -19,6 +19,10 @@ public class SecurityService {
     @Inject
     SecurityIdentity identity;
 
+    public String getToken() {
+        return identity.getPrincipal().getName(); // ou extraire le token s'il est stocké
+    }
+
     @WithSession
     public Uni<Void> validateLeadAccess(String leadId) {
         // If not a SUBSCRIBER, no need to validate

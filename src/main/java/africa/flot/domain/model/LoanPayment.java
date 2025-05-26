@@ -2,6 +2,7 @@ package africa.flot.domain.model;
 
 import africa.flot.domain.model.enums.PaymentStatus;
 import africa.flot.domain.model.enums.PaymentMethod;
+import africa.flot.domain.model.enums.TransactionStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -44,8 +45,12 @@ public class LoanPayment extends PanacheEntityBase {
     private PaymentStatus status;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "transaction_status", nullable = false)
+    private TransactionStatus transactionStatus = TransactionStatus.INITIATED;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "payment_method")
-    private PaymentMethod paymentMethod = PaymentMethod.BANK_TRANSFER;
+    private PaymentMethod paymentMethod = PaymentMethod.MOBILE_MONEY;
 
     // Calculs de retard
     @Column(name = "days_overdue")
@@ -61,6 +66,19 @@ public class LoanPayment extends PanacheEntityBase {
     // Commentaire ou note sur le paiement
     @Column(name = "notes", length = 500)
     private String notes;
+
+    // Nouveaux champs pour Mobile Money
+    @Column(name = "payment_provider")
+    private String paymentProvider; // "orange", "mtn", etc.
+
+    @Column(name = "payment_phone_number")
+    private String paymentPhoneNumber; // Numéro de téléphone utilisé
+
+    @Column(name = "payment_intent_id")
+    private String paymentIntentId; // ID de l'intent HUB2
+
+    @Column(name = "payment_transaction_id")
+    private String paymentTransactionId; // ID de la transaction HUB2
 
     // Métadonnées
     @Column(name = "created_at", nullable = false)

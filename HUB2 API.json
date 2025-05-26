@@ -1,0 +1,1565 @@
+{
+	"info": {
+		"_postman_id": "af39404b-08f6-4174-98a0-4cc205af599b",
+		"name": "HUB2 API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "15114652"
+	},
+	"item": [
+		{
+			"name": "Transfers",
+			"item": [
+				{
+					"name": "Create Transfer",
+					"request": {
+						"auth": {
+							"type": "apikey",
+							"apikey": [
+								{
+									"key": "value",
+									"value": "{{apiKey}}",
+									"type": "string"
+								},
+								{
+									"key": "key",
+									"value": "ApiKey",
+									"type": "string"
+								},
+								{
+									"key": "in",
+									"value": "header",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"reference\": \"xxxx\",\r\n    \"amount\":500,\r\n    \"currency\": \"XOF\",\r\n    \"description\": \"xxxx\",\r\n    \"destination\": {\r\n        \"type\": \"mobile_money\",\r\n        \"country\": \"CI\",\r\n        \"provider\": \"orange\",\r\n        \"msisdn\": \"\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/transfers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"transfers"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "Create Transfer",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "environment",
+										"value": "{{environment}}",
+										"type": "text"
+									},
+									{
+										"key": "merchantId",
+										"value": "{{merchantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"reference\": \"ref_2021_04_27_002\",\r\n    \"amount\": 200,\r\n    \"currency\": \"XOF\",\r\n    \"description\": \"string\",\r\n    \"destination\": {\r\n        \"type\": \"mobile_money\",\r\n        \"country\": \"CI\",\r\n        \"provider\": \"orange\",\r\n        \"msisdn\": \"\"\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/transfers",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"transfers"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx/1.19.2"
+								},
+								{
+									"key": "Date",
+									"value": "Tue, 27 Apr 2021 10:37:47 GMT"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								},
+								{
+									"key": "Content-Length",
+									"value": "344"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "X-Powered-By",
+									"value": "Express"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "ETag",
+									"value": "W/\"158-FxJF1RHTefc+lQWQ5a7MlRBNuuo\""
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=15724800; includeSubDomains"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": \"tr_TwN4jM8B9LY71jIwwzMaY\",\n    \"merchantId\": \"16\",\n    \"createdAt\": \"2021-04-27T10:37:47.837Z\",\n    \"updatedAt\": \"2021-04-27T10:37:47.837Z\",\n    \"reference\": \"ref_2021_04_27_002\",\n    \"description\": \"string\",\n    \"destination\": {\n        \"type\": \"mobile_money\",\n        \"country\": \"CI\",\n        \"provider\": \"orange\",\n        \"number\": \"00000001\"\n    },\n    \"mode\": \"sandbox\",\n    \"amount\": 200,\n    \"currency\": \"XOF\",\n    \"status\": \"created\"\n}"
+						},
+						{
+							"name": "Create Transfer",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "environment",
+										"value": "{{environment}}",
+										"type": "text"
+									},
+									{
+										"key": "merchantId",
+										"value": "{{merchantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "\r\n{\r\n    \"reference\": \"DBK_Test_tr_orange_CI/20220102_01\",\r\n    \"amount\": 200,\r\n    \"currency\": \"XOF\",\r\n    \"description\": \"DBK_Test_tr_CI_01\",\r\n    \"destination\": {\r\n        \"type\": \"mobile_money\",\r\n        \"country\": \"CI\",\r\n        \"provider\": \"orange\",\r\n        \"msisdn\":\"{{msisdnOrange}}\"\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/transfers",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"transfers"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 05 Jan 2022 10:44:16 GMT"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								},
+								{
+									"key": "Content-Length",
+									"value": "462"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "X-Powered-By",
+									"value": "Express"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "ETag",
+									"value": "W/\"1ce-dV/GW724z7hI3dgCOxfIOOgj2C4\""
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=15724800; includeSubDomains"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": \"tr_pMTmO5zJGh59TXkrWzrKl\",\n    \"merchantId\": \"16\",\n    \"createdAt\": \"2022-01-05T10:44:15.757Z\",\n    \"updatedAt\": \"2022-01-05T10:44:15.757Z\",\n    \"reference\": \"DBK_Test_tr_orange_CI/20220102_01\",\n    \"description\": \"DBK_Test_tr_CI_01\",\n    \"destination\": {\n        \"type\": \"mobile_money\",\n        \"country\": \"CI\",\n        \"provider\": \"orange\",\n        \"number\": \"3958\"\n    },\n    \"fees\": [\n        {\n            \"id\": \"fee_05tjiVEVQCxjhWlWTdecA\",\n            \"rate\": 297,\n            \"type\": \"flat\",\n            \"amount\": 297,\n            \"currency\": \"XOF\"\n        }\n    ],\n    \"mode\": \"live\",\n    \"amount\": 200,\n    \"currency\": \"XOF\",\n    \"status\": \"created\"\n}"
+						}
+					]
+				},
+				{
+					"name": "BankTransfer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "environment",
+								"value": "live",
+								"type": "text"
+							},
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"reference\": \"transfer_reference\",\r\n    \"amount\": 150,\r\n    \"currency\": \"XOF\",\r\n    \"description\": \"Transfer label\",\r\n    \"destination\": {\r\n        \"type\": \"bank_transfer\",\r\n        \"country\": \"CI\",\r\n        \"bankName\": \"GTBANK COTE D'IVOIRE\",\r\n        \"bankCode\":\"163\",\r\n        \"accountOwner\":\"Nom du titulaire du compte de destination\",\r\n        \"accountNumber\":\"CIXXXXXXXXXXXXXXXXXXXXXX\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/transfers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"transfers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "transfers",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "MerchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/transfers?from=2022-06-21T00:00:00Z&to=2022-06-21T23:59:59Z",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"transfers"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "2022-06-21T00:00:00Z"
+								},
+								{
+									"key": "to",
+									"value": "2022-06-21T23:59:59Z"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "transferts/id",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/transfers/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"transfers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payment",
+			"item": [
+				{
+					"name": "payment intent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const respBody = pm.response.json();\r",
+									"\r",
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(201);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Body matches string\", function () {\r",
+									"    pm.expect(pm.response.text()).to.include(\"amount\");\r",
+									"    pm.expect(pm.response.text()).to.include(\"currency\");\r",
+									"    pm.expect(pm.response.text()).to.include(\"date\");\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Successful POST request\", function () {\r",
+									"    pm.expect(pm.response.code).to.be.oneOf([201, 202]);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status code name has string\", function () {\r",
+									"    pm.response.to.have.status(\"Created\");\r",
+									"    var jsonObject = xml2Json(responseBody);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status Code is 200\", function () {\r",
+									"    pm.collectionVariables.set(\"paymentIntentId\", respBody.id);\r",
+									"    pm.collectionVariables.set(\"paymentIntentToken\", respBody.token);\r",
+									"    pm.response.to.have.status(201);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"customerReference\": \"DBK_pay_Test_mtn_CI_01\",\r\n    \"purchaseReference\": \"DBK_pay_Test_mtn_CI/25_11_2022_1\",\r\n    \"amount\":20,\r\n    \"currency\": \"XOF\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/payment-intents",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"payment-intents"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "payment intent",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "environment",
+										"value": "{{environment}}",
+										"type": "text"
+									},
+									{
+										"key": "merchantId",
+										"value": "{{merchantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n\"customerReference\": \"cust_20210713003\",\r\n\"purchaseReference\": \"Test/pay/ref_2021_07_13_03\",\r\n\"amount\": 100,\r\n\"currency\": \"XOF\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/payment-intents",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"payment-intents"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 13 Jul 2021 14:03:26 GMT"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								},
+								{
+									"key": "Content-Length",
+									"value": "513"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "X-Powered-By",
+									"value": "Express"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "ETag",
+									"value": "W/\"201-O841+ciRx8XpYfbPRIvxARlraJA\""
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=15724800; includeSubDomains"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": \"pi_bOowh0LUvt6TdEecYKM38\",\n    \"createdAt\": \"2021-07-13T14:03:26.086Z\",\n    \"updatedAt\": \"2021-07-13T14:03:26.088Z\",\n    \"merchantId\": \"16\",\n    \"purchaseReference\": \"Test/pay/ref_2021_07_13_03\",\n    \"customerReference\": \"cust_20210713003\",\n    \"amount\": 100,\n    \"currency\": \"XOF\",\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpbnRlbnRJZCI6InBpX2JPb3doMExVdnQ2VGRFZWNZS00zOCIsIm1lcmNoYW50SWQiOiIxNiIsIm1vZGUiOiJsaXZlIiwiaWF0IjoxNjI2MTg1MDA2fQ.LjvamDJ2fzkrlIGs-apUIBCLZO8xJZOEe3da-0o0zw8\",\n    \"status\": \"payment_required\",\n    \"payments\": [],\n    \"mode\": \"live\"\n}"
+						}
+					]
+				},
+				{
+					"name": "payment-intents/Id/payment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "MerchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"token\": \"{{paymentIntentToken}}\",\r\n    \"paymentMethod\": \"mobile_money\",\r\n    \"country\": \"CI\",\r\n    \"provider\": \"orange\",\r\n    \"mobileMoney\":{\r\n        \"msisdn\":\"07xxxxxxxx\",\r\n        \"otp\": \"1234\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/payment-intents/:id/payments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"payment-intents",
+								":id",
+								"payments"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{paymentIntentId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "payment-intents/id",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/payment-intents/:id?token={{paymentIntentToken}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"payment-intents",
+								":id"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "{{paymentIntentToken}}"
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{paymentIntentId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "payment-intents/Id/authentification",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "MerchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n\"token\": \"{{paymentIntentToken}}\",\r\n\"confirmationCode\": \"1234\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/payment-intents/:id/authentication",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"payment-intents",
+								":id",
+								"authentication"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{paymentIntentId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Payment-fees",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/payment-intents/:id/payment-fees",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"payment-intents",
+								":id",
+								"payment-fees"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Webhook",
+			"item": [
+				{
+					"name": "webhook",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(201);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Successful POST request\", function () {\r",
+									"    pm.expect(pm.response.code).to.be.oneOf([201, 202]);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status code name has string\", function () {\r",
+									"    pm.response.to.have.status(\"Created\");\r",
+									"    var jsonObject = xml2Json(responseBody);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "apikey",
+							"apikey": [
+								{
+									"key": "value",
+									"value": "{{apiKey}}",
+									"type": "string"
+								},
+								{
+									"key": "in",
+									"value": "header",
+									"type": "string"
+								},
+								{
+									"key": "key",
+									"value": "ApiKey",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "MerchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n\"url\":\"\",\r\n\"events\": [\r\n    \"transfer.created\",\r\n    \"transfer.processing\",\r\n    \"transfer.succeeded\",\r\n    \"transfer.failed\"\r\n\r\n],\r\n\"description\": \"This is a webhook trigger upon transfer, payment & payment_intent creation\",\r\n\"metadata\": { }\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/webhooks/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"webhooks",
+								""
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "webhook",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "environment",
+										"value": "{{environment}}",
+										"type": "text"
+									},
+									{
+										"key": "MerchantId",
+										"value": "{{merchantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n\"url\": \"https://fuzzy-bulldog-57.loca.lt\",\r\n\"events\": [\r\n\"payment.created\",\r\n\"payment.pending\",\r\n\"payment.succeeded\",\r\n\"payment.action_required\",\r\n\"payment.failed\",\r\n\"transfer.created\",\r\n\"transfer.processing\",\r\n\"transfer.succeeded\",\r\n\"transfer.failed\",\r\n\"payment_intent.created\",\r\n\"payment_intent.processing\",\r\n\"payment_intent.succeeded\",\r\n\"payment_intent.action_required\",\r\n\"payment_intent.payment_failed\"\r\n],\r\n\"description\": \"This is a webhook trigger upon transfer, payment & payment_intent creation\",\r\n\"metadata\": { }\r\n}\r\n",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/webhooks/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"webhooks",
+										""
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx/1.19.2"
+								},
+								{
+									"key": "Date",
+									"value": "Thu, 06 May 2021 15:03:10 GMT"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								},
+								{
+									"key": "Content-Length",
+									"value": "678"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "X-Powered-By",
+									"value": "Express"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "ETag",
+									"value": "W/\"2a6-TczyBAFElvnsOZnqMB6lfoE3gI8\""
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=15724800; includeSubDomains"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": \"wh_OOTwQBK1yCnJ8VmxY3LoL\",\n    \"createdAt\": \"2021-05-06T15:03:10.625Z\",\n    \"updatedAt\": \"2021-05-06T15:03:10.625Z\",\n    \"mode\": \"sandbox\",\n    \"description\": \"This is a webhook trigger upon transfer, payment & payment_intent creation\",\n    \"events\": [\n        \"payment.created\",\n        \"payment.pending\",\n        \"payment.succeeded\",\n        \"payment.action_required\",\n        \"payment.failed\",\n        \"transfer.created\",\n        \"transfer.processing\",\n        \"transfer.succeeded\",\n        \"transfer.failed\",\n        \"payment_intent.created\",\n        \"payment_intent.processing\",\n        \"payment_intent.succeeded\",\n        \"payment_intent.action_required\",\n        \"payment_intent.payment_failed\"\n    ],\n    \"metadata\": {},\n    \"status\": \"enabled\",\n    \"url\": \"https://fuzzy-bulldog-57.loca.lt\",\n    \"secret\": \"whsec_zHeLdc6i6GRpX5X23mHsS8X2PJ75mWMc\"\n}"
+						}
+					]
+				},
+				{
+					"name": "webhook/id",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"\r",
+									"pm.test(\"Successful POST request\", function () {\r",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 202]);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status code name has string\", function () {\r",
+									"    pm.response.to.have.status(\"OK\");\r",
+									"    var jsonObject = xml2Json(responseBody);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "MerchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "Environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/webhooks/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"webhooks",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "webhooks",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"\r",
+									"pm.test(\"Successful POST request\", function () {\r",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 202]);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status code name has string\", function () {\r",
+									"    pm.response.to.have.status(\"OK\");\r",
+									"    var jsonObject = xml2Json(responseBody);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "MerchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/webhooks",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"webhooks"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "webhooks",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "environment",
+										"value": "{{environment}}",
+										"type": "text"
+									},
+									{
+										"key": "MerchantId",
+										"value": "{{merchantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/webhooks",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"webhooks"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx/1.19.2"
+								},
+								{
+									"key": "Date",
+									"value": "Thu, 06 May 2021 15:12:24 GMT"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept-Encoding"
+								},
+								{
+									"key": "X-Powered-By",
+									"value": "Express"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "ETag",
+									"value": "W/\"35dc-cO1sMaPF7/J9Hue+tBTey005CNw\""
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=15724800; includeSubDomains"
+								},
+								{
+									"key": "Content-Encoding",
+									"value": "gzip"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"id\": \"wh_OOTwQBK1yCnJ8VmxY3LoL\",\n        \"createdAt\": \"2021-05-06T15:03:10.625Z\",\n        \"updatedAt\": \"2021-05-06T15:03:10.625Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon transfer, payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment.pending\",\n            \"payment.succeeded\",\n            \"payment.action_required\",\n            \"payment.failed\",\n            \"transfer.created\",\n            \"transfer.processing\",\n            \"transfer.succeeded\",\n            \"transfer.failed\",\n            \"payment_intent.created\",\n            \"payment_intent.processing\",\n            \"payment_intent.succeeded\",\n            \"payment_intent.action_required\",\n            \"payment_intent.payment_failed\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://fuzzy-bulldog-57.loca.lt\"\n    },\n    {\n        \"id\": \"wh_XCnJ2olBh38gjGxbPRTKG\",\n        \"createdAt\": \"2021-05-06T13:50:21.945Z\",\n        \"updatedAt\": \"2021-05-06T13:50:21.945Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon transfer, payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment.pending\",\n            \"payment.succeeded\",\n            \"payment.action_required\",\n            \"payment.failed\",\n            \"transfer.created\",\n            \"transfer.processing\",\n            \"transfer.succeeded\",\n            \"transfer.failed\",\n            \"payment_intent.created\",\n            \"payment_intent.processing\",\n            \"payment_intent.succeeded\",\n            \"payment_intent.action_required\",\n            \"payment_intent.payment_failed\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://webhooksink.herokuapp.com/notifications\"\n    },\n    {\n        \"id\": \"wh_wzDSXuxNljhooPs6bKflg\",\n        \"createdAt\": \"2021-05-06T12:06:48.634Z\",\n        \"updatedAt\": \"2021-05-06T12:06:48.634Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon transfer, payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment.pending\",\n            \"payment.succeeded\",\n            \"payment.action_required\",\n            \"payment.failed\",\n            \"transfer.created\",\n            \"transfer.processing\",\n            \"transfer.succeeded\",\n            \"transfer.failed\",\n            \"payment_intent.created\",\n            \"payment_intent.processing\",\n            \"payment_intent.succeeded\",\n            \"payment_intent.action_required\",\n            \"payment_intent.payment_failed\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://webhooksink.herokuapp.com/notifications\"\n    },\n    {\n        \"id\": \"wh_qFxMzPqsCffgBkzmExSGl\",\n        \"createdAt\": \"2021-05-06T10:51:23.249Z\",\n        \"updatedAt\": \"2021-05-06T10:51:23.249Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon transfer, payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment.pending\",\n            \"payment.succeeded\",\n            \"payment.action_required\",\n            \"payment.failed\",\n            \"transfer.created\",\n            \"transfer.processing\",\n            \"transfer.succeeded\",\n            \"transfer.failed\",\n            \"payment_intent.created\",\n            \"payment_intent.processing\",\n            \"payment_intent.succeeded\",\n            \"payment_intent.action_required\",\n            \"payment_intent.payment_failed\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://webhooksink.herokuapp.com/notifications\"\n    },\n    {\n        \"id\": \"wh_8qvPi3D4fyXY9noscojJU\",\n        \"createdAt\": \"2021-05-06T10:49:06.429Z\",\n        \"updatedAt\": \"2021-05-06T10:49:06.429Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment.pending\",\n            \"payment.succeeded\",\n            \"payment.action_required\",\n            \"payment.failed\",\n            \"transfer.created\",\n            \"transfer.processing\",\n            \"transfer.succeeded\",\n            \"transfer.failed\",\n            \"payment_intent.created\",\n            \"payment_intent.processing\",\n            \"payment_intent.succeeded\",\n            \"payment_intent.action_required\",\n            \"payment_intent.payment_failed\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://webhooksink.herokuapp.com/notifications\"\n    },\n    {\n        \"id\": \"wh_zDW5RXSLyY2v5WZl7h8eG\",\n        \"createdAt\": \"2021-05-06T09:36:32.884Z\",\n        \"updatedAt\": \"2021-05-06T09:36:32.884Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_nfLGpZokTXbs47Pv3IaKi\",\n        \"createdAt\": \"2021-05-06T08:23:08.216Z\",\n        \"updatedAt\": \"2021-05-06T08:23:08.216Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_Bx3YMrn6eKxRxG5yxdYHt\",\n        \"createdAt\": \"2021-04-29T10:25:27.472Z\",\n        \"updatedAt\": \"2021-04-29T10:25:27.472Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_Bu5STtpz8LZZGQgBXP54R\",\n        \"createdAt\": \"2021-04-28T12:11:56.508Z\",\n        \"updatedAt\": \"2021-04-28T12:11:56.508Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_KVRAAyQ90PZAWYwAG9Flf\",\n        \"createdAt\": \"2021-04-28T12:04:19.839Z\",\n        \"updatedAt\": \"2021-04-28T12:04:19.839Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_IFpq43PrzTWyj4daEWyJI\",\n        \"createdAt\": \"2021-04-27T16:12:49.769Z\",\n        \"updatedAt\": \"2021-04-27T16:12:49.769Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_ZRAXPNjN6bpJyna0x3ViD\",\n        \"createdAt\": \"2021-04-27T16:09:32.527Z\",\n        \"updatedAt\": \"2021-04-27T16:09:32.527Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_OlzItT5PROsPxEIJK8r90\",\n        \"createdAt\": \"2021-04-27T11:47:17.737Z\",\n        \"updatedAt\": \"2021-04-27T11:47:17.737Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_PLvfVq8mPv8SZG0LRqIsD\",\n        \"createdAt\": \"2021-04-26T13:55:05.462Z\",\n        \"updatedAt\": \"2021-04-26T13:55:05.462Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_uqbJI2JDx5JkV6sBtSQsy\",\n        \"createdAt\": \"2021-04-26T12:04:59.378Z\",\n        \"updatedAt\": \"2021-04-26T12:04:59.378Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_oJLJ3TyvlG2RSwWVVMZCo\",\n        \"createdAt\": \"2021-04-26T11:57:23.670Z\",\n        \"updatedAt\": \"2021-04-26T11:57:23.670Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_9uVd0Mfr4tsfHpY1rGyeK\",\n        \"createdAt\": \"2021-04-26T11:55:13.400Z\",\n        \"updatedAt\": \"2021-04-26T11:55:13.400Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_0YlInuyILZNhRHBCDcVnT\",\n        \"createdAt\": \"2021-04-26T11:51:36.186Z\",\n        \"updatedAt\": \"2021-04-26T11:51:36.186Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_UDiqDHvHu11SMOUoEYgwc\",\n        \"createdAt\": \"2021-04-26T11:24:36.704Z\",\n        \"updatedAt\": \"2021-04-26T11:24:36.704Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_cDYqabIOy9aX5ElIJ8loY\",\n        \"createdAt\": \"2021-04-26T11:20:22.398Z\",\n        \"updatedAt\": \"2021-04-26T11:20:22.398Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_6C5CIXX1K8dPcdE4lbkpx\",\n        \"createdAt\": \"2021-04-26T11:17:47.397Z\",\n        \"updatedAt\": \"2021-04-26T11:17:47.397Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_9WtNqNTh8UeK1TIsHnA1J\",\n        \"createdAt\": \"2021-04-26T11:16:02.827Z\",\n        \"updatedAt\": \"2021-04-26T11:16:02.827Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_VuEUfRPebC1W4NuROVyYc\",\n        \"createdAt\": \"2021-04-26T11:03:33.276Z\",\n        \"updatedAt\": \"2021-04-26T11:03:33.276Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_ifyIaDxuyklktdyp46cO0\",\n        \"createdAt\": \"2021-04-23T13:04:55.536Z\",\n        \"updatedAt\": \"2021-04-23T13:04:55.536Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_lznRKlG0mHOzB0NMcxB4C\",\n        \"createdAt\": \"2021-04-22T13:39:09.081Z\",\n        \"updatedAt\": \"2021-04-22T13:39:09.081Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_1pvgce0QVCsCItaaq8OU6\",\n        \"createdAt\": \"2021-04-22T12:42:18.857Z\",\n        \"updatedAt\": \"2021-04-22T12:42:18.857Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_u9tTzOC5UzyD87MY4xEO6\",\n        \"createdAt\": \"2021-04-21T12:48:47.310Z\",\n        \"updatedAt\": \"2021-04-21T12:48:47.310Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_P4UGCF8u1dhA7yLlq1eWH\",\n        \"createdAt\": \"2021-04-21T12:45:59.510Z\",\n        \"updatedAt\": \"2021-04-21T12:45:59.510Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_OCHhxusG9BCj1NI8wcLAj\",\n        \"createdAt\": \"2021-04-21T12:38:58.052Z\",\n        \"updatedAt\": \"2021-04-21T12:38:58.052Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_BjPnlUs9Ybz2J62apqFCW\",\n        \"createdAt\": \"2021-04-21T11:24:29.349Z\",\n        \"updatedAt\": \"2021-04-21T11:24:29.349Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_FAwVGbjZSR9vFlKIEOYec\",\n        \"createdAt\": \"2021-04-21T11:19:08.380Z\",\n        \"updatedAt\": \"2021-04-21T11:19:08.380Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_p6WKq5HyPTNjNI79mBwW9\",\n        \"createdAt\": \"2021-04-19T17:46:36.438Z\",\n        \"updatedAt\": \"2021-04-19T17:46:36.438Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_RFrY3JAqzkdlhzDSpP7Ar\",\n        \"createdAt\": \"2021-04-19T17:28:42.792Z\",\n        \"updatedAt\": \"2021-04-19T17:28:42.792Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_PtYzq5Lm0lap20Xx1c3kH\",\n        \"createdAt\": \"2021-04-19T17:28:06.115Z\",\n        \"updatedAt\": \"2021-04-19T17:28:06.115Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_584Pvq0IIxf7tD0i980Ru\",\n        \"createdAt\": \"2021-04-19T17:26:06.638Z\",\n        \"updatedAt\": \"2021-04-19T17:26:06.638Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_pQzgUMubiVAh9L9t6dd7U\",\n        \"createdAt\": \"2021-04-19T17:25:50.226Z\",\n        \"updatedAt\": \"2021-04-19T17:25:50.226Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    },\n    {\n        \"id\": \"wh_BMdYc1aKLonj4uZk5AgD3\",\n        \"createdAt\": \"2021-04-15T17:51:26.640Z\",\n        \"updatedAt\": \"2021-04-15T17:51:26.640Z\",\n        \"mode\": \"sandbox\",\n        \"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\n        \"events\": [\n            \"payment.created\",\n            \"payment_intent.created\"\n        ],\n        \"metadata\": {},\n        \"status\": \"enabled\",\n        \"url\": \"https://my.webhook.target\"\n    }\n]"
+						}
+					]
+				},
+				{
+					"name": "webhooks/Id",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n\"url\": \"\",\r\n\"description\": \"This is a webhook trigger upon payment & payment_intent creation\",\r\n\"events\": [\r\n\"payment.created\",\r\n\"payment_intent.created\"\r\n],\r\n\"metadata\": { }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/webhooks/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"webhooks",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "webhooks",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/webhooks/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"webhooks",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Infos",
+			"item": [
+				{
+					"name": "data/countries",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"\r",
+									"\r",
+									"\r",
+									"pm.test(\"Successful POST request\", function () {\r",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 202]);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status code name has string\", function () {\r",
+									"    pm.response.to.have.status(\"OK\");\r",
+									"    var jsonObject = xml2Json(responseBody);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/data/countries",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"data",
+								"countries"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "data/providers",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"\r",
+									"pm.test(\"Successful POST request\", function () {\r",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 202]);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status code name has string\", function () {\r",
+									"    pm.response.to.have.status(\"OK\");\r",
+									"    var jsonObject = xml2Json(responseBody);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/data/providers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"data",
+								"providers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "balance",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Body matches string\", function () {\r",
+									"    pm.expect(pm.response.text()).to.include(\"amount\");\r",
+									"    pm.expect(pm.response.text()).to.include(\"currency\");\r",
+									"    pm.expect(pm.response.text()).to.include(\"date\");\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Successful POST request\", function () {\r",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 202]);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status code name has string\", function () {\r",
+									"    pm.response.to.have.status(\"OK\");\r",
+									"    var jsonObject = xml2Json(responseBody);\r",
+									"});\r",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/balance",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"balance"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "accounts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							},
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/merchants/:id/accounts/:type",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"merchants",
+								":id",
+								"accounts",
+								":type"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{merchantId}}"
+								},
+								{
+									"key": "type",
+									"value": "collection"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Check Merchant Balance",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Body matches string\", function () {\r",
+									"    pm.expect(pm.response.text()).to.include(\"amount\");\r",
+									"    pm.expect(pm.response.text()).to.include(\"currency\");\r",
+									"    pm.expect(pm.response.text()).to.include(\"date\");\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Successful POST request\", function () {\r",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 202]);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Status code name has string\", function () {\r",
+									"    pm.response.to.have.status(\"OK\");\r",
+									"    var jsonObject = xml2Json(responseBody);\r",
+									"});\r",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "merchantId",
+								"value": "{{merchantId}}",
+								"type": "text"
+							},
+							{
+								"key": "environment",
+								"value": "{{environment}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/balance?currency=XOF&date=2022-03-09T12:00:00.000Z",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"balance"
+							],
+							"query": [
+								{
+									"key": "currency",
+									"value": "XOF"
+								},
+								{
+									"key": "date",
+									"value": "2022-03-09T12:00:00.000Z"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "value",
+				"value": "{{apiKey}}",
+				"type": "string"
+			},
+			{
+				"key": "key",
+				"value": "ApiKey",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://api.hub2.io"
+		},
+		{
+			"key": "paymentIntentId",
+			"value": ""
+		},
+		{
+			"key": "paymentIntentToken",
+			"value": ""
+		}
+	]
+}
